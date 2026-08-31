@@ -35,7 +35,7 @@ export default async function WishlistPage() {
                 key={p.id}
                 product={{
                   id: p.id,
-                  name: p.name,
+                  name: p.displayName ?? p.name,
                   minPrice: cheapest?.sellingPrice ?? null,
                   compareAtPrice: cheapest?.compliancePrice ?? null,
                   hasAvailableOption: availableOptions.length > 0,

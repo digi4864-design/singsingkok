@@ -21,7 +21,14 @@ export default async function HomePage({
   const where = {
     isActive: true,
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
-    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { displayName: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
   };
 
   const session = await auth();
@@ -77,7 +84,7 @@ export default async function HomePage({
   const wishlistedSet = new Set(wishlistedIds.map((w) => w.productId));
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  function toCardData(p: { id: string; name: string; thumbnailUrl: string | null; options: { sellingPrice: number; compliancePrice: number | null; isAvailable: boolean }[] }) {
+  function toCardData(p: { id: string; name: string; displayName: string | null; thumbnailUrl: string | null; options: { sellingPrice: number; compliancePrice: number | null; isAvailable: boolean }[] }) {
     const availableOptions = p.options.filter((o) => o.isAvailable);
     const priceSource = availableOptions.length > 0 ? availableOptions : p.options;
     const cheapest =
@@ -86,7 +93,7 @@ export default async function HomePage({
         : null;
     return {
       id: p.id,
-      name: p.name,
+      name: p.displayName ?? p.name,
       minPrice: cheapest?.sellingPrice ?? null,
       compareAtPrice: cheapest?.compliancePrice ?? null,
       hasAvailableOption: availableOptions.length > 0,

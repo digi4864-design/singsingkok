@@ -17,7 +17,14 @@ export default async function AdminProductsPage({
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.product.findMany({
       where: {
-        ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { displayName: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
         ...(category ? { categoryId: category } : {}),
       },
       include: { category: true, options: true },
@@ -118,8 +125,11 @@ export default async function AdminProductsPage({
                   </td>
                   <td className="px-4 py-2">
                     <Link href={`/admin/products/${p.id}`} className="hover:text-primary">
-                      {p.name}
+                      {p.displayName ?? p.name}
                     </Link>
+                    {p.displayName && (
+                      <p className="text-xs text-gray-400">원본: {p.name}</p>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-gray-500">{p.category?.name ?? "미지정"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.options.length}개</td>

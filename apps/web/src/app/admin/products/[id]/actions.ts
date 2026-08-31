@@ -43,10 +43,15 @@ export async function updateProductAction(formData: FormData) {
   const isActive = formData.get("isActive") === "on";
   const isFeatured = formData.get("isFeatured") === "on";
   const origin = String(formData.get("origin") ?? "").trim();
+  const displayNameInput = String(formData.get("displayName") ?? "").trim();
+
+  const product = await prisma.product.findUniqueOrThrow({ where: { id }, select: { name: true } });
+  // 원본 name과 같으면 별도 표시명을 저장할 필요가 없으니 null로 되돌린다(파트너몰 동기화 기준 키는 name을 그대로 유지).
+  const displayName = !displayNameInput || displayNameInput === product.name ? null : displayNameInput;
 
   await prisma.product.update({
     where: { id },
-    data: { categoryId: categoryId || null, isActive, isFeatured, origin: origin || null },
+    data: { categoryId: categoryId || null, isActive, isFeatured, origin: origin || null, displayName },
   });
 
   revalidatePath(`/admin/products/${id}`);

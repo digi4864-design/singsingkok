@@ -44,6 +44,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
   const galleryImages =
     product.images.length > 0 ? product.images : product.thumbnailUrl ? [product.thumbnailUrl] : [];
   const hasAvailableOption = product.options.some((o) => o.isAvailable);
+  const displayName = product.displayName ?? product.name;
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -52,7 +53,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           {product.thumbnailUrl ? (
             <Image
               src={product.thumbnailUrl}
-              alt={product.name}
+              alt={displayName}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
@@ -82,7 +83,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
               무료배송
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">{product.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">{displayName}</h1>
 
           {avgRating !== null && (
             <p className="text-sm text-amber-500 mb-1">
@@ -95,7 +96,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           </p>
 
           <OptionSelector
-            product={{ id: product.id, name: product.name, thumbnailUrl: product.thumbnailUrl }}
+            product={{ id: product.id, name: displayName, thumbnailUrl: product.thumbnailUrl }}
             options={product.options.map((o) => ({
               id: o.id,
               optionName: o.optionName,
@@ -115,7 +116,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
               <div key={src} className="relative w-full">
                 <Image
                   src={src}
-                  alt={`${product.name} 상세이미지 ${i + 1}`}
+                  alt={`${displayName} 상세이미지 ${i + 1}`}
                   width={1000}
                   height={1000}
                   sizes="(max-width: 768px) 100vw, 800px"

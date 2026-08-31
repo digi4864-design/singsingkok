@@ -23,8 +23,14 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold text-gray-900 mb-1">{product.name}</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-1">{product.displayName ?? product.name}</h1>
       <p className="text-sm text-gray-400 mb-6">
+        {product.displayName && (
+          <>
+            원본 상품명: {product.name}
+            <br />
+          </>
+        )}
         마지막 동기화: {product.lastSyncedAt.toLocaleString("ko-KR")}
       </p>
 
@@ -70,6 +76,17 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
 
       <form action={updateProductAction} className="flex flex-wrap items-end gap-4 mb-8">
         <input type="hidden" name="id" value={product.id} />
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            쇼핑몰에 노출할 상품명
+          </label>
+          <input
+            name="displayName"
+            defaultValue={product.displayName ?? product.name}
+            placeholder={product.name}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-64"
+          />
+        </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">카테고리</label>
           <select

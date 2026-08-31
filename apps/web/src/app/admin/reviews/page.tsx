@@ -13,7 +13,7 @@ export default async function AdminReviewsPage({
 
   const reviews = await prisma.review.findMany({
     where: filter === "hidden" ? { isHidden: true } : undefined,
-    include: { product: { select: { id: true, name: true } }, user: { select: { name: true, email: true } } },
+    include: { product: { select: { id: true, name: true, displayName: true } }, user: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -72,7 +72,7 @@ export default async function AdminReviewsPage({
             <tr key={r.id}>
               <td className="px-4 py-2">
                 <Link href={`/products/${r.product.id}`} className="hover:text-primary">
-                  {r.product.name}
+                  {r.product.displayName ?? r.product.name}
                 </Link>
               </td>
               <td className="px-4 py-2 text-gray-500">{r.user.name ?? r.user.email}</td>

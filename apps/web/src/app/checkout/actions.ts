@@ -59,12 +59,13 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
   for (const item of input.items) {
     const option = optionMap.get(item.productOptionId);
     if (!option) return { ok: false, message: "존재하지 않는 상품 옵션이 포함되어 있습니다." };
+    const productDisplayName = option.product.displayName ?? option.product.name;
     if (!option.isAvailable) {
-      return { ok: false, message: `품절된 상품이 포함되어 있습니다: ${option.product.name}` };
+      return { ok: false, message: `품절된 상품이 포함되어 있습니다: ${productDisplayName}` };
     }
     lineItems.push({
       productOptionId: option.id,
-      productName: option.product.name,
+      productName: productDisplayName,
       optionName: option.optionName,
       unitPrice: option.sellingPrice,
       quantity: item.quantity,
