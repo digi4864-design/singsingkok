@@ -28,6 +28,14 @@ export async function AuthHeader() {
         주문내역
       </Link>
       <span className="hidden sm:inline text-gray-300">|</span>
+      {session.user.role === "ADMIN" && (
+        <>
+          <Link href="/admin" className="font-medium text-primary hover:text-primary-hover">
+            관리자
+          </Link>
+          <span className="text-gray-300">|</span>
+        </>
+      )}
       <form
         action={async () => {
           "use server";
