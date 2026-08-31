@@ -136,7 +136,11 @@ export default async function AdminProductsPage({
                   <td className="px-4 py-2">
                     <button
                       type="submit"
-                      formAction={toggleProductFeaturedAction.bind(null, p.id, p.isFeatured)}
+                      formAction={(toggleProductFeaturedAction as (...args: unknown[]) => void).bind(
+                        null,
+                        p.id,
+                        p.isFeatured
+                      )}
                       className={`px-2 py-0.5 rounded-full text-xs ${
                         p.isFeatured ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-400"
                       }`}
@@ -147,7 +151,11 @@ export default async function AdminProductsPage({
                   <td className="px-4 py-2 text-right">
                     <button
                       type="submit"
-                      formAction={toggleProductActiveAction.bind(null, p.id, p.isActive)}
+                      formAction={(toggleProductActiveAction as (...args: unknown[]) => void).bind(
+                        null,
+                        p.id,
+                        p.isActive
+                      )}
                       className="text-xs text-primary hover:underline"
                     >
                       {p.isActive ? "비공개로 전환" : "공개로 전환"}

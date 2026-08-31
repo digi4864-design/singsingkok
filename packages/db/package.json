@@ -11,7 +11,7 @@
     "studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^6"
+    "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
     "prisma": "^6"

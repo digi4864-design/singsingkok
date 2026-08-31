@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "npm run generate -w @farm-mall/db",
     "dev": "dotenv -e .env -- npm run dev -w web",
     "build": "dotenv -e .env -- npm run build -w web",
     "db:generate": "npm run generate -w @farm-mall/db",
@@ -14,5 +15,8 @@
   },
   "devDependencies": {
     "dotenv-cli": "^7"
+  },
+  "overrides": {
+    "@prisma/client": "6.19.3"
   }
 }

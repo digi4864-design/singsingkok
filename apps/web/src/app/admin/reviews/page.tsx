@@ -96,7 +96,11 @@ export default async function AdminReviewsPage({
                 <form className="inline">
                   <button
                     type="submit"
-                    formAction={toggleReviewHiddenAction.bind(null, r.id, r.isHidden)}
+                    formAction={(toggleReviewHiddenAction as (...args: unknown[]) => void).bind(
+                      null,
+                      r.id,
+                      r.isHidden
+                    )}
                     className="text-xs text-primary hover:underline mr-3"
                   >
                     {r.isHidden ? "노출로 전환" : "숨기기"}
