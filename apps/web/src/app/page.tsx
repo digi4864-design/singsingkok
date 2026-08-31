@@ -27,47 +27,51 @@ export default async function HomePage({
   const session = await auth();
   const isDefaultView = !categorySlug && !q && page === 1;
 
-  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
-    // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
-    isDefaultView
-      ? Promise.resolve([])
-      : prisma.product.findMany({
-          where,
-          include: { options: true },
-          orderBy: { updatedAt: "desc" },
-          skip: (page - 1) * PAGE_SIZE,
-          take: PAGE_SIZE,
-        }),
-    isDefaultView ? Promise.resolve(0) : prisma.product.count({ where }),
-    session?.user
-      ? prisma.wishlist.findMany({ where: { userId: session.user.id }, select: { productId: true } })
-      : Promise.resolve([]),
-    isDefaultView
-      ? prisma.product.findMany({
-          where: { isActive: true, isFeatured: true },
-          include: { options: true },
-          orderBy: { updatedAt: "desc" },
-          take: 8,
-        })
-      : Promise.resolve([]),
-  ]);
+  // 홈 화면 기본(카테고리별 섹션) 뷰의 쿼리를 전부 한 번에 병렬로 날린다. 예전엔 카테고리
+  // 목록을 먼저 받은 뒤 카테고리마다 별도 쿼리를 순차적으로 날려서, DB 리전과 거리가 있는
+  // 배포 환경에서 왕복 지연이 여러 번 누적돼 페이지 이동이 눈에 띄게 느렸다.
+  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, allSectionProducts] =
+    await Promise.all([
+      prisma.category.findMany({ orderBy: { name: "asc" } }),
+      // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
+      // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
+      isDefaultView
+        ? Promise.resolve([])
+        : prisma.product.findMany({
+            where,
+            include: { options: true },
+            orderBy: { updatedAt: "desc" },
+            skip: (page - 1) * PAGE_SIZE,
+            take: PAGE_SIZE,
+          }),
+      isDefaultView ? Promise.resolve(0) : prisma.product.count({ where }),
+      session?.user
+        ? prisma.wishlist.findMany({ where: { userId: session.user.id }, select: { productId: true } })
+        : Promise.resolve([]),
+      isDefaultView
+        ? prisma.product.findMany({
+            where: { isActive: true, isFeatured: true },
+            include: { options: true },
+            orderBy: { updatedAt: "desc" },
+            take: 8,
+          })
+        : Promise.resolve([]),
+      isDefaultView
+        ? prisma.product.findMany({
+            where: { isActive: true, categoryId: { not: null } },
+            include: { options: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve([]),
+    ]);
 
   const categories = sortCategoriesForStorefront(categoriesRaw);
 
   const categorySections = isDefaultView
-    ? await Promise.all(
-        categories.map(async (c) => ({
-          category: c,
-          products: await prisma.product.findMany({
-            where: { isActive: true, categoryId: c.id },
-            include: { options: true },
-            orderBy: { updatedAt: "desc" },
-            take: SECTION_SIZE,
-          }),
-        }))
-      )
+    ? categories.map((c) => ({
+        category: c,
+        products: allSectionProducts.filter((p) => p.categoryId === c.id).slice(0, SECTION_SIZE),
+      }))
     : [];
 
   const wishlistedSet = new Set(wishlistedIds.map((w) => w.productId));
