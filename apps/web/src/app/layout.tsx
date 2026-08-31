@@ -38,6 +38,9 @@ export const viewport: Viewport = {
   themeColor: "#16803c",
 };
 
+// 루트 레이아웃이 DB(StoreSetting)를 조회하므로, 빌드 시 정적 프리렌더링을 시도하지 않도록 강제한다.
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const setting = await prisma.storeSetting.findUnique({ where: { id: "default" } });
   const hasBusinessInfo = Boolean(setting?.businessName && setting?.businessRegistrationNo);
