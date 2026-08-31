@@ -1,0 +1,18 @@
+{
+  "name": "farm-mall",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "dotenv -e .env -- npm run dev -w web",
+    "build": "dotenv -e .env -- npm run build -w web",
+    "db:generate": "npm run generate -w @farm-mall/db",
+    "db:migrate": "dotenv -e .env -- npm run migrate:dev -w @farm-mall/db",
+    "db:studio": "dotenv -e .env -- npm run studio -w @farm-mall/db"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7"
+  }
+}

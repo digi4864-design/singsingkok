@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# build output
+dist/
+
+# env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# scraper session/cookies (contains authenticated login session)
+apps/scraper/.storage/
+
+# logs
+*.log
+npm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# prisma
+packages/db/prisma/dev.db
+
+# 상품 이미지(구글드라이브 동기화 + 관리자 수동 업로드) - 로컬 개발용 저장소일 뿐,
+# 배포 환경에서는 Vercel Blob 등 별도 클라우드 저장소로 옮겨야 함
+apps/web/public/products/

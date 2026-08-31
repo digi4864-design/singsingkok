@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  SHIPPING
+  DELIVERED
+  CANCELED
+}
+
+enum PaymentStatus {
+  READY
+  DONE
+  CANCELED
+  FAILED
+}
+
+enum ShipmentStatus {
+  READY
+  REGISTERED
+  IN_TRANSIT
+  DELIVERED
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+// 쇼핑몰 전역 설정(입금계좌 안내, 사업자정보 등). 항상 id="default" 단일 행만 사용한다.
+model StoreSetting {
+  id                     String   @id @default("default")
+  bankName               String?
+  bankAccountNumber      String?
+  bankAccountHolder      String?
+  contactPhone           String?
+  businessName           String? // 상호명
+  representativeName     String? // 대표자명
+  businessRegistrationNo String? // 사업자등록번호
+  mailOrderSalesNo       String? // 통신판매업 신고번호
+  businessAddress        String?
+  updatedAt              DateTime @updatedAt
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
+// 공급가 구간별 마진율 규칙. 예: 5,000~10,000원 구간은 +20%, 10,000~20,000원 구간은 +15%.
+// maxPrice가 null이면 "minPrice 이상" 전체에 적용되는 최상위 구간을 의미한다.
+model MarginBracket {
+  id            String   @id @default(cuid())
+  minPrice      Int
+  maxPrice      Int?
+  marginPercent Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  thumbnailUrl     String?
+  images           String[]
+  description      String?
+  origin           String?  // 원산지 (농수산물의 원산지 표시에 관한 법률에 따라 표시 필요)
+  isActive         Boolean  @default(true)
+  isFeatured       Boolean  @default(false) // 관리자가 지정하는 "제철 베스트 상품" - 메인 화면 상단 노출
+  category         Category? @relation(fields: [categoryId], references: [id])
+  categoryId       String?
+  options          ProductOption[]
+  wishlistedBy     Wishlist[]
+  reviews          Review[]
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// 구매자 상품평. 최초 버전은 실구매 검증 없이 로그인 회원이 상품당 1개까지 작성 가능(위시리스트와 동일 패턴).
+model Review {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  rating    Int      // 1~5
+  content   String
+  isHidden  Boolean  @default(false) // 관리자 숨김 처리(부적절한 내용 등)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+// 최고집 상품 엑셀은 상품 1개당 무게/등급별 옵션이 여러 행으로 제공됨
+// (예: "자색양파" - "5kg/중", "5kg/대", "10kg/소" ...). 옵션별로 관리코드·가격·판매상태가 다르다.
+model ProductOption {
+  id              String      @id @default(cuid())
+  product         Product     @relation(fields: [productId], references: [id])
+  productId       String
+  sourceOptionId  String      @unique // 최고집 관리코드
+  optionName      String              // 옵션명 (예: "1kg / 대과 / 1~2번과")
+  price           Int                 // 공급가 (원가, 고객에게 노출되지 않음)
+  sellingPrice    Int                 // 실제 판매가 (고객에게 노출·결제되는 금액)
+  isPriceManual   Boolean     @default(false) // true면 재업로드 시 판매가를 자동 재계산하지 않고 유지
+  compliancePrice Int?                // 준수판매가 (공급사가 지정한 최소 판매가, 있는 경우)
+  isAvailable     Boolean     @default(true) // 판매상태 == "판매중"
+  supplierCourier String?             // 택배사
+  outboundType    String?             // 출고지 (위탁/센터)
+  orderCutoff     String?             // 발주마감시간
+  orderItems      OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Auth.js(NextAuth) PrismaAdapter가 요구하는 표준 스키마(User/Account/Session/VerificationToken).
+// passwordHash/phone/zipCode/address/addressDetail은 이메일 회원가입(Credentials 로그인) 및
+// 체크아웃 배송지 자동입력을 위해 추가한 필드.
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  phone         String?
+  zipCode       String?
+  address       String?
+  addressDetail String?
+  role          Role      @default(CUSTOMER)
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  wishlist      Wishlist[]
+  reviews       Review[]
+  createdAt     DateTime  @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNo         String      @unique
+  customer        User?       @relation(fields: [customerId], references: [id])
+  customerId      String?
+  status          OrderStatus @default(PENDING_PAYMENT)
+  totalAmount     Int
+  recipientName   String
+  recipientPhone  String
+  zipCode         String
+  address         String
+  addressDetail   String?
+  memo            String?
+  items           OrderItem[]
+  payment         Payment?
+  shipment        Shipment?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id              String        @id @default(cuid())
+  order           Order         @relation(fields: [orderId], references: [id])
+  orderId         String
+  productOption   ProductOption @relation(fields: [productOptionId], references: [id])
+  productOptionId String
+  productName     String
+  optionName      String
+  unitPrice       Int
+  quantity        Int
+  lineTotal       Int
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  order       Order         @relation(fields: [orderId], references: [id])
+  orderId     String        @unique
+  paymentKey  String?       @unique
+  method      String?
+  amount      Int
+  status      PaymentStatus @default(READY)
+  approvedAt  DateTime?
+  rawResponse Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Shipment {
+  id                 String         @id @default(cuid())
+  order              Order          @relation(fields: [orderId], references: [id])
+  orderId            String         @unique
+  courier            String?
+  trackingNumber     String?
+  status             ShipmentStatus @default(READY)
+  invoiceRegisteredAt DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+model ImportRun {
+  id              String    @id @default(cuid())
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  totalProducts   Int       @default(0)
+  totalOptions    Int       @default(0)
+  createdProducts Int       @default(0)
+  updatedProducts Int       @default(0)
+  imageSynced     Int       @default(0)
+  imageSkipped    Int       @default(0)
+  imageFailed     Int       @default(0)
+  errorLog        String?
+}

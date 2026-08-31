@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22a355"/>
+      <stop offset="100%" stop-color="#146c33"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+
+  <!-- sprout: two leaves rising from a small seed -->
+  <g transform="translate(256,300)">
+    <!-- left leaf (vesica shape) -->
+    <path
+      d="M -8,-30 A 78,78 0 0 1 -96,-96 A 78,78 0 0 1 -8,-30 Z"
+      fill="#ffffff"
+    />
+    <!-- right leaf (vesica shape), slightly smaller + lighter for depth -->
+    <path
+      d="M 6,-46 A 66,66 0 0 1 92,-104 A 66,66 0 0 1 6,-46 Z"
+      fill="#d9f2c4"
+    />
+    <!-- stem -->
+    <path d="M -2,-20 C -2,20 2,55 2,80" stroke="#ffffff" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <!-- seed / 콕 accent -->
+    <circle cx="2" cy="104" r="24" fill="#ffd23f"/>
+  </g>
+</svg>
