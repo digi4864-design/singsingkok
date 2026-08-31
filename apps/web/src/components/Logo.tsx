@@ -1,7 +1,7 @@
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 font-bold text-lg text-primary ${className}`}>
-      <svg width="22" height="22" viewBox="0 0 512 512" aria-hidden="true">
+    <span className={`inline-flex items-center gap-2 font-bold text-2xl text-primary ${className}`}>
+      <svg width="30" height="30" viewBox="0 0 512 512" aria-hidden="true">
         <g transform="translate(256,300)">
           <path
             d="M -8,-30 A 78,78 0 0 1 -96,-96 A 78,78 0 0 1 -8,-30 Z"
