@@ -8,6 +8,7 @@ import { formatWon } from "@/lib/format";
 import { AddressSearchButton } from "@/components/AddressSearchButton";
 import { TossPaymentWidget, type TossWidgetsInstance } from "@/components/TossPaymentWidget";
 import { createOrderAction } from "./actions";
+import { WELCOME_COUPON_PERCENT } from "@/lib/membership";
 
 export interface BankInfo {
   bankName: string | null;
@@ -51,7 +52,7 @@ export function CheckoutClient({
   const [widgets, setWidgets] = useState<TossWidgetsInstance | null>(null);
   const [useCoupon, setUseCoupon] = useState(couponEligible);
 
-  const couponPercent = useCoupon && couponEligible ? 7 : 0;
+  const couponPercent = useCoupon && couponEligible ? WELCOME_COUPON_PERCENT : 0;
   const discountPercent = tierDiscountPercent + couponPercent;
   const discountAmount = Math.round(((totalPrice * discountPercent) / 100 / 10)) * 10;
   const finalTotal = totalPrice - discountAmount;
@@ -181,7 +182,7 @@ export function CheckoutClient({
               checked={useCoupon}
               onChange={(e) => setUseCoupon(e.target.checked)}
             />
-            🎉 신규가입 축하 쿠폰 (7% 할인) 사용하기
+            🎉 신규가입 축하 쿠폰 ({WELCOME_COUPON_PERCENT}% 할인) 사용하기
           </label>
         )}
       </section>
