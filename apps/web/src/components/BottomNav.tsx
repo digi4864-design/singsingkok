@@ -6,7 +6,9 @@ export async function BottomNav() {
 
   const items = [
     { href: "/", label: "홈", icon: "🏠" },
-    { href: "/orders/lookup", label: "배송조회", icon: "📦" },
+    // 로그인 상태면 본인 주문 목록(마이페이지)으로, 비회원이면 주문번호로 조회하는
+    // 비회원 주문조회 페이지로 보낸다.
+    { href: session?.user ? "/mypage" : "/orders/lookup", label: "배송조회", icon: "📦" },
     { href: session?.user ? "/mypage" : "/login", label: session?.user ? "마이페이지" : "로그인", icon: "👤" },
     { href: "/?focus=search", label: "검색", icon: "🔍" },
     { href: "/wishlist", label: "찜", icon: "♡" },
