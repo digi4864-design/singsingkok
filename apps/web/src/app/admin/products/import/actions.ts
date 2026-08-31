@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@farm-mall/db";
-import { parseChoigozipExcel, findProductDriveImages, uploadImagesToBlob } from "@farm-mall/sync";
+import { parseChoigozipExcel } from "@farm-mall/sync";
 import { computeSellingPrice } from "@/lib/pricing";
 import { applyCategoryRules } from "@/lib/categoryRules";
 import { requireAdmin } from "@/lib/requireAdmin";
@@ -14,20 +14,33 @@ export interface ImportState {
     totalOptions: number;
     createdProducts: number;
     updatedProducts: number;
-    imageSynced: number;
-    imageSkipped: number;
-    imageFailed: number;
   };
 }
 
-function slugify(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9가-힣-]/g, "");
+// 상품 수가 많으면 한 상품씩 순차 처리하는 것만으로도 시간이 걸리므로, 서로 독립적인
+// 상품 upsert를 동시에 여러 개 처리해 전체 시간을 줄인다.
+const CONCURRENCY = 8;
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
 }
 
+// 엑셀 업로드는 상품명/가격/재고 같은 "빠른" 메타데이터만 반영한다. 구글 드라이브에서
+// 썸네일·상세이미지·카테고리를 찾아 채우는 작업은 상품당 여러 번의 네트워크 왕복이 필요해
+// 카탈로그 전체를 한 번에 처리하면 서버리스 함수 실행시간 제한을 넘겨 버린다(실제로 겪은
+// 문제: 브라우저에 "This page couldn't load" 표시). 그래서 이미지 동기화는 별도의
+// resyncThumbnailsAction으로 분리해, 여러 번에 나눠 안전하게 처리한다.
 export async function importProductsAction(
   _prev: ImportState,
   formData: FormData
@@ -52,21 +65,29 @@ export async function importProductsAction(
   }
 
   const importRun = await prisma.importRun.create({ data: {} });
-
-  const rootFolderId = process.env.CHOIGOZIP_DRIVE_ROOT_FOLDER_ID;
-  const hasDriveKey = Boolean(process.env.GOOGLE_DRIVE_API_KEY && rootFolderId);
   const brackets = await prisma.marginBracket.findMany({ orderBy: { minPrice: "asc" } });
+
+  // 상품/옵션 존재 여부를 매번 개별 조회하는 대신 한 번에 미리 가져와, 상품 수만큼
+  // 반복되던 DB 왕복 횟수를 줄인다(Neon과의 리전 간 지연이 누적되는 것을 완화).
+  const [existingProducts, existingOptions] = await Promise.all([
+    prisma.product.findMany({
+      where: { name: { in: products.map((p) => p.name) } },
+      select: { id: true, name: true },
+    }),
+    prisma.productOption.findMany({
+      where: { sourceOptionId: { in: products.flatMap((p) => p.options.map((o) => o.sourceOptionId)) } },
+      select: { sourceOptionId: true, isPriceManual: true, sellingPrice: true },
+    }),
+  ]);
+  const existingProductByName = new Map(existingProducts.map((p) => [p.name, p]));
+  const existingOptionBySourceId = new Map(existingOptions.map((o) => [o.sourceOptionId, o]));
 
   let createdProducts = 0;
   let updatedProducts = 0;
   let totalOptions = 0;
-  let imageSynced = 0;
-  let imageSkipped = 0;
-  let imageFailed = 0;
-  const errors: string[] = [];
 
-  for (const parsed of products) {
-    const existing = await prisma.product.findUnique({ where: { name: parsed.name } });
+  await mapWithConcurrency(products, CONCURRENCY, async (parsed) => {
+    const existing = existingProductByName.get(parsed.name);
 
     const product = await prisma.product.upsert({
       where: { name: parsed.name },
@@ -78,90 +99,44 @@ export async function importProductsAction(
     if (existing) updatedProducts++;
     else createdProducts++;
 
-    for (const opt of parsed.options) {
-      const existingOption = await prisma.productOption.findUnique({
-        where: { sourceOptionId: opt.sourceOptionId },
-      });
-      const sellingPrice =
-        existingOption?.isPriceManual && existingOption.sellingPrice
-          ? existingOption.sellingPrice
-          : computeSellingPrice(opt.price, brackets);
+    await Promise.all(
+      parsed.options.map(async (opt) => {
+        const existingOption = existingOptionBySourceId.get(opt.sourceOptionId);
+        const sellingPrice =
+          existingOption?.isPriceManual && existingOption.sellingPrice
+            ? existingOption.sellingPrice
+            : computeSellingPrice(opt.price, brackets);
 
-      await prisma.productOption.upsert({
-        where: { sourceOptionId: opt.sourceOptionId },
-        update: {
-          productId: product.id,
-          optionName: opt.optionName,
-          price: opt.price,
-          sellingPrice,
-          compliancePrice: opt.compliancePrice,
-          isAvailable: opt.isAvailable,
-          supplierCourier: opt.supplierCourier,
-          outboundType: opt.outboundType,
-          orderCutoff: opt.orderCutoff,
-        },
-        create: {
-          productId: product.id,
-          sourceOptionId: opt.sourceOptionId,
-          optionName: opt.optionName,
-          price: opt.price,
-          sellingPrice,
-          compliancePrice: opt.compliancePrice,
-          isAvailable: opt.isAvailable,
-          supplierCourier: opt.supplierCourier,
-          outboundType: opt.outboundType,
-          orderCutoff: opt.orderCutoff,
-        },
-      });
-      totalOptions++;
-    }
-
-    if (!hasDriveKey || product.thumbnailUrl) {
-      if (product.thumbnailUrl) imageSkipped++;
-      continue;
-    }
-
-    try {
-      const match = await findProductDriveImages(rootFolderId!, parsed.name);
-      const hasThumbnail = match.thumbnailImages.length > 0;
-      const hasDetail = match.detailImages.length > 0;
-
-      if (match.matched && (hasThumbnail || hasDetail)) {
-        const [thumbUrls, detailUrls] = await Promise.all([
-          hasThumbnail
-            ? uploadImagesToBlob(match.thumbnailImages.slice(0, 1), product.id, "thumb")
-            : [],
-          hasDetail ? uploadImagesToBlob(match.detailImages, product.id, "detail") : [],
-        ]);
-        // 메인 썸네일은 "사진" 폴더(없으면 다른 폴더에서 찾은 대체 사진) 우선, 그것도 없으면 상세페이지 이미지로 대체
-        const thumbnailUrl = thumbUrls[0] ?? detailUrls[0];
-        const images = detailUrls.length > 0 ? detailUrls : thumbUrls;
-
-        let categoryId: string | undefined;
-        if (match.categoryFolder) {
-          const category = await prisma.category.upsert({
-            where: { name: match.categoryFolder },
-            update: {},
-            create: { name: match.categoryFolder, slug: slugify(match.categoryFolder) },
-          });
-          categoryId = category.id;
-        }
-
-        await prisma.product.update({
-          where: { id: product.id },
-          // 썸네일을 확보했으므로 비공개 기본값을 해제하고 공개로 전환한다.
-          data: { images, thumbnailUrl, categoryId, isActive: thumbnailUrl ? true : undefined },
+        await prisma.productOption.upsert({
+          where: { sourceOptionId: opt.sourceOptionId },
+          update: {
+            productId: product.id,
+            optionName: opt.optionName,
+            price: opt.price,
+            sellingPrice,
+            compliancePrice: opt.compliancePrice,
+            isAvailable: opt.isAvailable,
+            supplierCourier: opt.supplierCourier,
+            outboundType: opt.outboundType,
+            orderCutoff: opt.orderCutoff,
+          },
+          create: {
+            productId: product.id,
+            sourceOptionId: opt.sourceOptionId,
+            optionName: opt.optionName,
+            price: opt.price,
+            sellingPrice,
+            compliancePrice: opt.compliancePrice,
+            isAvailable: opt.isAvailable,
+            supplierCourier: opt.supplierCourier,
+            outboundType: opt.outboundType,
+            orderCutoff: opt.orderCutoff,
+          },
         });
-        imageSynced++;
-      } else {
-        imageSkipped++;
-      }
-    } catch (err) {
-      console.error(`Drive 이미지 동기화 실패 (${parsed.name}):`, err);
-      errors.push(`[${parsed.name}] ${(err as Error).message}`);
-      imageFailed++;
-    }
-  }
+        totalOptions++;
+      })
+    );
+  });
 
   await applyCategoryRules();
 
@@ -173,26 +148,18 @@ export async function importProductsAction(
       totalOptions,
       createdProducts,
       updatedProducts,
-      imageSynced,
-      imageSkipped,
-      imageFailed,
-      errorLog: errors.length ? errors.join("\n") : null,
     },
   });
 
   return {
     ok: true,
-    message: hasDriveKey
-      ? "업로드 및 이미지 동기화가 완료되었습니다."
-      : "업로드가 완료되었습니다. (GOOGLE_DRIVE_API_KEY가 없어 이미지 동기화는 건너뛰었습니다.)",
+    message:
+      "업로드가 완료되었습니다. 사진이 없는 상품은 비공개 상태이니, 아래 \"이미지/카테고리 재점검\" 버튼을 눌러 이미지를 동기화해주세요.",
     summary: {
       totalProducts: products.length,
       totalOptions,
       createdProducts,
       updatedProducts,
-      imageSynced,
-      imageSkipped,
-      imageFailed,
     },
   };
 }

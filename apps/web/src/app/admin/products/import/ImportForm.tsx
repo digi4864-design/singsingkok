@@ -46,12 +46,6 @@ export function ImportForm() {
           <dd>{state.summary.createdProducts}건</dd>
           <dt>갱신</dt>
           <dd>{state.summary.updatedProducts}건</dd>
-          <dt>이미지 동기화</dt>
-          <dd>{state.summary.imageSynced}건</dd>
-          <dt>이미지 건너뜀</dt>
-          <dd>{state.summary.imageSkipped}건</dd>
-          <dt>이미지 실패</dt>
-          <dd>{state.summary.imageFailed}건</dd>
         </dl>
       )}
     </form>
