@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { formatWon } from "@/lib/format";
+import { QuantityStepper } from "@/components/QuantityStepper";
 
 export interface OptionData {
   id: string;
@@ -99,17 +100,8 @@ export function OptionSelector({
       {selected?.isAvailable ? (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <label htmlFor="quantity" className="text-sm text-gray-600">
-              수량
-            </label>
-            <input
-              id="quantity"
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              className="w-20 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-            />
+            <span className="text-sm text-gray-600">수량</span>
+            <QuantityStepper value={quantity} onChange={setQuantity} />
           </div>
           <div className="flex gap-3">
             <button

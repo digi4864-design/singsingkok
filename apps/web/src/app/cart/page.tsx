@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { formatWon } from "@/lib/format";
+import { QuantityStepper } from "@/components/QuantityStepper";
 
 export default function CartPage() {
   const { items, removeItem, setQuantity, totalPrice } = useCart();
@@ -36,12 +37,9 @@ export default function CartPage() {
               <p className="text-xs text-gray-500 truncate">{item.optionName}</p>
               <p className="text-sm font-medium text-gray-900">{formatWon(item.price)}</p>
             </div>
-            <input
-              type="number"
-              min={1}
+            <QuantityStepper
               value={item.quantity}
-              onChange={(e) => setQuantity(item.optionId, Math.max(1, Number(e.target.value) || 1))}
-              className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-center"
+              onChange={(q) => setQuantity(item.optionId, q)}
             />
             <button
               onClick={() => removeItem(item.optionId)}
