@@ -1,10 +1,11 @@
 import { ImportForm } from "./ImportForm";
 import { ResyncThumbnailsButton } from "./ResyncThumbnailsButton";
 
-// 상품 수가 많으면 엑셀 파싱 + 구글드라이브 이미지 매칭에 시간이 걸려 Vercel 기본
-// 실행시간 제한(대략 10~15초)을 넘길 수 있다. 이 페이지의 Server Action(업로드/재동기화)
-// 실행시간 한도를 늘려준다(Hobby 플랜에서 허용되는 최대값).
-export const maxDuration = 60;
+// 이 프로젝트의 Vercel Hobby 플랜은 Fluid Compute가 기본 적용되어 있어 실행시간 한도가
+// 원래 300초(5분)까지 허용된다. 배치 처리(업로드/재동기화 모두 훨씬 짧게 끝나도록 설계됨)와
+// 별개로, Vercel 서버와 DB(Neon) 간 리전 거리로 인한 지연이 로컬 테스트보다 클 수 있으므로
+// 여유 있게 플랫폼이 허용하는 최대값을 그대로 사용한다.
+export const maxDuration = 300;
 
 export default function ProductImportPage() {
   return (
