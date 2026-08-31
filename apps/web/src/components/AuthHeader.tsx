@@ -6,7 +6,7 @@ export async function AuthHeader() {
 
   if (!session?.user) {
     return (
-      <div className="flex items-center gap-3 text-sm text-gray-500">
+      <div className="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
         <Link href="/login" className="hover:text-primary">
           로그인
         </Link>
@@ -19,15 +19,15 @@ export async function AuthHeader() {
   }
 
   return (
-    <div className="flex items-center gap-3 text-sm text-gray-500">
+    <div className="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
       <Link href="/mypage" className="hover:text-primary">
         {session.user.name ?? "마이페이지"}
       </Link>
       <span className="text-gray-300">|</span>
-      <Link href="/mypage#orders" className="hover:text-primary">
+      <Link href="/mypage#orders" className="hidden sm:inline hover:text-primary">
         주문내역
       </Link>
-      <span className="text-gray-300">|</span>
+      <span className="hidden sm:inline text-gray-300">|</span>
       <form
         action={async () => {
           "use server";

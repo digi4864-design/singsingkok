@@ -55,11 +55,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <CartProvider>
           <InstallPrompt />
           <header className="border-b border-gray-200">
-            <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-              <Link href="/" className="inline-block active:scale-95 transition-transform">
+            <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
+              <Link
+                href="/"
+                className="inline-block shrink-0 active:scale-95 transition-transform"
+              >
                 <Logo />
               </Link>
-              <nav className="flex items-center gap-4 text-sm text-gray-500">
+              <nav className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 whitespace-nowrap overflow-x-auto">
                 <Link href="/wishlist" className="hidden sm:inline hover:text-primary">
                   찜
                 </Link>
