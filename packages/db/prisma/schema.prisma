@@ -35,6 +35,15 @@ enum Role {
   ADMIN
 }
 
+// 누적 구매금액 기준 회원등급. 새싹(기본) -> 잎새 -> 열매 -> 황금열매(VIP) 순.
+// 정확한 기준 금액은 apps/web/src/lib/membership.ts에서 관리한다.
+enum MembershipTier {
+  SPROUT
+  LEAF
+  FRUIT
+  GOLD
+}
+
 // 쇼핑몰 전역 설정(입금계좌 안내, 사업자정보 등). 항상 id="default" 단일 행만 사용한다.
 model StoreSetting {
   id                     String   @id @default("default")
@@ -151,6 +160,8 @@ model User {
   address       String?
   addressDetail String?
   role          Role      @default(CUSTOMER)
+  totalSpent    Int       @default(0) // 누적 구매금액 (취소된 주문 제외) - 결제 확정 시마다 갱신
+  membershipTier MembershipTier @default(SPROUT)
   accounts      Account[]
   sessions      Session[]
   orders        Order[]

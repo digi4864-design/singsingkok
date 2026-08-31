@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@farm-mall/db";
+import { refreshMembershipTier } from "@/lib/updateMembership";
 
 function failRedirect(req: NextRequest, message: string) {
   const url = new URL("/checkout/fail", req.url);
@@ -68,6 +69,8 @@ export async function GET(req: NextRequest) {
     }),
     prisma.order.update({ where: { id: order.id }, data: { status: "PAID" } }),
   ]);
+
+  await refreshMembershipTier(order.customerId);
 
   return NextResponse.redirect(new URL(`/orders/${order.id}`, req.url));
 }

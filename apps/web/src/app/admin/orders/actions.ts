@@ -3,18 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { refreshMembershipTier } from "@/lib/updateMembership";
 
 export async function confirmPaymentAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
 
-  await prisma.$transaction([
+  const [, order] = await prisma.$transaction([
     prisma.payment.update({
       where: { orderId },
       data: { status: "DONE", approvedAt: new Date(), method: "무통장입금(수동확인)" },
     }),
     prisma.order.update({ where: { id: orderId }, data: { status: "PAID" } }),
   ]);
+
+  await refreshMembershipTier(order.customerId);
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
@@ -72,7 +75,9 @@ export async function markDeliveredAction(formData: FormData) {
 export async function cancelOrderAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
-  await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } });
+  const order = await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } });
+  // 취소된 주문은 누적 구매금액에서 빠져야 하므로 등급도 다시 계산한다.
+  await refreshMembershipTier(order.customerId);
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
 }

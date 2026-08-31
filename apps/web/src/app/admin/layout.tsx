@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 const NAV_ITEMS = [
   { href: "/admin", label: "대시보드" },
   { href: "/admin/orders", label: "주문/배송 관리" },
+  { href: "/admin/customers", label: "회원 관리" },
   { href: "/admin/products", label: "상품 관리" },
   { href: "/admin/products/import", label: "엑셀 업로드" },
   { href: "/admin/categories", label: "카테고리 관리" },
