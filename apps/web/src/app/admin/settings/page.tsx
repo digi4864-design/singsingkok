@@ -15,7 +15,37 @@ export default async function AdminSettingsPage() {
       </p>
 
       <form action={updateStoreSettingAction} className="space-y-4">
-        <h2 className="text-sm font-semibold text-gray-700">입금 계좌</h2>
+        <h2 className="text-sm font-semibold text-gray-700">메인페이지 상단 홍보 배너</h2>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            name="promoBannerEnabled"
+            defaultChecked={setting?.promoBannerEnabled ?? false}
+          />
+          배너 노출
+        </label>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">배너 문구</label>
+          <input
+            name="promoBannerText"
+            defaultValue={setting?.promoBannerText ?? ""}
+            placeholder="🎉 신규가입 시 5% 할인 쿠폰 즉시 지급!"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            클릭 시 이동할 링크 (선택, 비워두면 클릭 불가)
+          </label>
+          <input
+            name="promoBannerLink"
+            defaultValue={setting?.promoBannerLink ?? ""}
+            placeholder="/signup"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
+        <h2 className="text-sm font-semibold text-gray-700 pt-4 border-t border-gray-200">입금 계좌</h2>
         <div>
           <label className="block text-xs text-gray-500 mb-1">은행명</label>
           <input

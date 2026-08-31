@@ -14,7 +14,8 @@ export default async function AdminCustomersPage({
 
   const users = await prisma.user.findMany({
     where: {
-      role: "CUSTOMER",
+      // 관리자 계정도 실제로 주문(테스트 구매 등)을 할 수 있으므로 role로 걸러내지 않고
+      // 전체 회원을 대상으로 보여준다.
       ...(tier ? { membershipTier: tier as never } : {}),
       ...(q
         ? {
@@ -31,6 +32,7 @@ export default async function AdminCustomersPage({
       name: true,
       email: true,
       phone: true,
+      role: true,
       totalSpent: true,
       membershipTier: true,
       createdAt: true,
@@ -99,7 +101,14 @@ export default async function AdminCustomersPage({
           )}
           {users.map((u) => (
             <tr key={u.id}>
-              <td className="px-4 py-2">{u.name ?? "-"}</td>
+              <td className="px-4 py-2">
+                {u.name ?? "-"}
+                {u.role === "ADMIN" && (
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500">
+                    관리자
+                  </span>
+                )}
+              </td>
               <td className="px-4 py-2 text-gray-500">{u.email}</td>
               <td className="px-4 py-2 text-gray-500">{u.phone ?? "-"}</td>
               <td className="px-4 py-2">

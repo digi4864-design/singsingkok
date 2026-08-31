@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { ProductCard } from "@/components/ProductCard";
+import { PromoBanner } from "@/components/PromoBanner";
 import { categoryIcon } from "@/lib/categoryIcons";
 import { sortCategoriesForStorefront } from "@/lib/categoryOrder";
 import { auth } from "@/lib/auth";
@@ -37,7 +38,7 @@ export default async function HomePage({
   // 홈 화면 기본(카테고리별 섹션) 뷰의 쿼리를 전부 한 번에 병렬로 날린다. 예전엔 카테고리
   // 목록을 먼저 받은 뒤 카테고리마다 별도 쿼리를 순차적으로 날려서, DB 리전과 거리가 있는
   // 배포 환경에서 왕복 지연이 여러 번 누적돼 페이지 이동이 눈에 띄게 느렸다.
-  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, allSectionProducts] =
+  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, allSectionProducts, setting] =
     await Promise.all([
       prisma.category.findMany({ orderBy: { name: "asc" } }),
       // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
@@ -70,6 +71,7 @@ export default async function HomePage({
             orderBy: { updatedAt: "desc" },
           })
         : Promise.resolve([]),
+      prisma.storeSetting.findUnique({ where: { id: "default" } }),
     ]);
 
   const categories = sortCategoriesForStorefront(categoriesRaw);
@@ -112,7 +114,11 @@ export default async function HomePage({
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <>
+      {setting?.promoBannerEnabled && setting.promoBannerText && (
+        <PromoBanner text={setting.promoBannerText} link={setting.promoBannerLink} />
+      )}
+      <main className="max-w-6xl mx-auto px-4 py-8">
       <form action="/" className="mb-6 flex gap-2 max-w-md">
         {categorySlug && <input type="hidden" name="category" value={categorySlug} />}
         <input
@@ -244,6 +250,7 @@ export default async function HomePage({
           )}
         </>
       )}
-    </main>
+      </main>
+    </>
   );
 }

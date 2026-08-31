@@ -10,6 +10,9 @@ export async function updateStoreSettingAction(formData: FormData) {
   const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
 
   const data = {
+    promoBannerEnabled: formData.get("promoBannerEnabled") === "on",
+    promoBannerText: field("promoBannerText"),
+    promoBannerLink: field("promoBannerLink"),
     bankName: field("bankName"),
     bankAccountNumber: field("bankAccountNumber"),
     bankAccountHolder: field("bankAccountHolder"),
