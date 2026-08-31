@@ -34,7 +34,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({
-    data: { email, passwordHash, name, phone: phone || null },
+    data: { email, passwordHash, name, phone: phone || null, hasWelcomeCoupon: true },
   });
 
   try {

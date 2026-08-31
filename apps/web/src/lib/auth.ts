@@ -57,6 +57,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   providers,
+  events: {
+    // 카카오/네이버 등 소셜 로그인은 이메일 회원가입(signupAction)을 거치지 않고
+    // PrismaAdapter가 직접 User를 생성하므로, 여기서 신규가입 축하 쿠폰을 지급한다.
+    async createUser({ user }) {
+      if (user.id) {
+        await prisma.user.update({ where: { id: user.id }, data: { hasWelcomeCoupon: true } });
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

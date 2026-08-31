@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { requireAdmin } from "@/lib/requireAdmin";
-import { refreshMembershipTier } from "@/lib/updateMembership";
+import { refreshMembershipTier, markWelcomeCouponUsedIfApplicable } from "@/lib/updateMembership";
 
 export async function confirmPaymentAction(formData: FormData) {
   await requireAdmin();
@@ -18,6 +18,7 @@ export async function confirmPaymentAction(formData: FormData) {
   ]);
 
   await refreshMembershipTier(order.customerId);
+  await markWelcomeCouponUsedIfApplicable(order.customerId, order.couponApplied);
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");

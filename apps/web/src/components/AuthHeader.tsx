@@ -24,6 +24,10 @@ export async function AuthHeader() {
         {session.user.name ?? "마이페이지"}
       </Link>
       <span className="text-gray-300">|</span>
+      <Link href="/mypage#orders" className="hover:text-primary">
+        주문내역
+      </Link>
+      <span className="text-gray-300">|</span>
       <form
         action={async () => {
           "use server";

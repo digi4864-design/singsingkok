@@ -24,7 +24,7 @@ export default async function MyPage() {
   const [orders, user] = await Promise.all([
     prisma.order.findMany({
       where: { customerId: session.user.id },
-      include: { items: true },
+      include: { items: true, shipment: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.user.findUniqueOrThrow({
@@ -73,7 +73,7 @@ export default async function MyPage() {
         )}
       </div>
 
-      <h2 className="text-sm font-semibold text-gray-700 mb-2">주문 내역</h2>
+      <h2 id="orders" className="text-sm font-semibold text-gray-700 mb-2 scroll-mt-20">주문 내역</h2>
       {orders.length === 0 ? (
         <p className="text-sm text-gray-400 py-10 text-center">주문 내역이 없습니다.</p>
       ) : (
@@ -91,6 +91,11 @@ export default async function MyPage() {
                 <div className="text-right">
                   <p className="font-medium text-gray-900">{formatWon(o.totalAmount)}</p>
                   <p className="text-xs text-gray-500">{STATUS_LABEL[o.status] ?? o.status}</p>
+                  {o.shipment?.trackingNumber && o.shipment.status !== "READY" && (
+                    <p className="text-[11px] text-gray-400">
+                      {o.shipment.courier} {o.shipment.trackingNumber}
+                    </p>
+                  )}
                 </div>
               </Link>
             </li>

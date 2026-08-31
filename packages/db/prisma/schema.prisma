@@ -162,6 +162,8 @@ model User {
   role          Role      @default(CUSTOMER)
   totalSpent    Int       @default(0) // 누적 구매금액 (취소된 주문 제외) - 결제 확정 시마다 갱신
   membershipTier MembershipTier @default(SPROUT)
+  hasWelcomeCoupon   Boolean @default(false) // 신규가입 축하 7% 쿠폰 보유 여부 (가입 시 발급)
+  welcomeCouponUsed  Boolean @default(false)
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
@@ -210,6 +212,9 @@ model Order {
   customer        User?       @relation(fields: [customerId], references: [id])
   customerId      String?
   status          OrderStatus @default(PENDING_PAYMENT)
+  subtotal        Int         @default(0) // 할인 적용 전 상품 금액 합계
+  discountAmount  Int         @default(0) // 등급 할인 + 쿠폰 할인 합계 (원)
+  couponApplied   Boolean     @default(false) // 신규가입 축하 쿠폰 사용 여부
   totalAmount     Int
   recipientName   String
   recipientPhone  String

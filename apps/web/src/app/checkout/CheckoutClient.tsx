@@ -30,11 +30,15 @@ export function CheckoutClient({
   defaultAddress,
   userId,
   customerEmail,
+  tierDiscountPercent,
+  couponEligible,
 }: {
   bankInfo: BankInfo | null;
   defaultAddress: DefaultAddress | null;
   userId: string | null;
   customerEmail: string | null;
+  tierDiscountPercent: number;
+  couponEligible: boolean;
 }) {
   const { items, totalPrice, clear } = useCart();
   const router = useRouter();
@@ -45,6 +49,12 @@ export function CheckoutClient({
     TOSS_CLIENT_KEY ? "CARD" : "BANK_TRANSFER"
   );
   const [widgets, setWidgets] = useState<TossWidgetsInstance | null>(null);
+  const [useCoupon, setUseCoupon] = useState(couponEligible);
+
+  const couponPercent = useCoupon && couponEligible ? 7 : 0;
+  const discountPercent = tierDiscountPercent + couponPercent;
+  const discountAmount = Math.round(((totalPrice * discountPercent) / 100 / 10)) * 10;
+  const finalTotal = totalPrice - discountAmount;
 
   const [form, setForm] = useState({
     recipientName: defaultAddress?.recipientName ?? "",
@@ -81,6 +91,7 @@ export function CheckoutClient({
       items: items.map((i) => ({ productOptionId: i.optionId, quantity: i.quantity })),
       ...form,
       paymentMethod,
+      useCoupon,
     });
 
     if (!result.ok || !result.orderId || !result.orderNo) {
@@ -136,10 +147,43 @@ export function CheckoutClient({
             </li>
           ))}
         </ul>
-        <div className="flex justify-between mt-3 text-base">
-          <span className="text-gray-600">총 결제금액</span>
-          <span className="font-bold text-gray-900">{formatWon(totalPrice)}</span>
+        <div className="mt-3 space-y-1 text-sm">
+          <div className="flex justify-between text-gray-500">
+            <span>상품금액</span>
+            <span>{formatWon(totalPrice)}</span>
+          </div>
+          {tierDiscountPercent > 0 && (
+            <div className="flex justify-between text-primary">
+              <span>등급 할인 ({tierDiscountPercent}%)</span>
+              <span>
+                -{formatWon(Math.round(((totalPrice * tierDiscountPercent) / 100 / 10)) * 10)}
+              </span>
+            </div>
+          )}
+          {couponPercent > 0 && (
+            <div className="flex justify-between text-primary">
+              <span>신규가입 쿠폰 ({couponPercent}%)</span>
+              <span>
+                -{formatWon(Math.round(((totalPrice * couponPercent) / 100 / 10)) * 10)}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between text-base pt-1 border-t border-gray-100">
+            <span className="text-gray-600">총 결제금액</span>
+            <span className="font-bold text-gray-900">{formatWon(finalTotal)}</span>
+          </div>
         </div>
+
+        {couponEligible && (
+          <label className="mt-3 flex items-center gap-2 text-sm bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useCoupon}
+              onChange={(e) => setUseCoupon(e.target.checked)}
+            />
+            🎉 신규가입 축하 쿠폰 (7% 할인) 사용하기
+          </label>
+        )}
       </section>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -258,7 +302,7 @@ export function CheckoutClient({
             <TossPaymentWidget
               clientKey={TOSS_CLIENT_KEY}
               customerKey={userId}
-              amount={totalPrice}
+              amount={finalTotal}
               onReady={setWidgets}
             />
           </div>
@@ -300,7 +344,7 @@ export function CheckoutClient({
             ? "처리 중..."
             : paymentMethod === "CARD" && !widgets
               ? "결제창 불러오는 중..."
-              : `${formatWon(totalPrice)} 결제하기`}
+              : `${formatWon(finalTotal)} 결제하기`}
         </button>
       </form>
     </main>

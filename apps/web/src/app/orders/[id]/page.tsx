@@ -13,6 +13,13 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELED: "취소됨",
 };
 
+const SHIPMENT_STATUS_LABEL: Record<string, string> = {
+  READY: "배송 준비 중",
+  REGISTERED: "운송장 등록됨",
+  IN_TRANSIT: "배송 중",
+  DELIVERED: "배송 완료",
+};
+
 export default async function OrderConfirmationPage(props: PageProps<"/orders/[id]">) {
   const { id } = await props.params;
 
@@ -73,10 +80,36 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
         ))}
       </ul>
 
-      <div className="flex justify-between text-base mb-8">
-        <span className="text-gray-600">총 결제금액</span>
-        <span className="font-bold text-gray-900">{formatWon(order.totalAmount)}</span>
+      <div className="mb-8 space-y-1 text-sm">
+        <div className="flex justify-between text-gray-500">
+          <span>상품금액</span>
+          <span>{formatWon(order.subtotal)}</span>
+        </div>
+        {order.discountAmount > 0 && (
+          <div className="flex justify-between text-primary">
+            <span>할인{order.couponApplied ? " (등급+쿠폰)" : " (등급)"}</span>
+            <span>-{formatWon(order.discountAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-base pt-1 border-t border-gray-100">
+          <span className="text-gray-600">총 결제금액</span>
+          <span className="font-bold text-gray-900">{formatWon(order.totalAmount)}</span>
+        </div>
       </div>
+
+      {order.shipment && order.shipment.status !== "READY" && (
+        <section className="mb-8 rounded-lg bg-green-50 text-green-800 text-sm px-3 py-3 space-y-1">
+          <h2 className="text-sm font-semibold mb-1">배송 정보</h2>
+          <p>
+            {SHIPMENT_STATUS_LABEL[order.shipment.status] ?? order.shipment.status}
+          </p>
+          {order.shipment.courier && order.shipment.trackingNumber && (
+            <p className="text-xs">
+              {order.shipment.courier} · 운송장번호 {order.shipment.trackingNumber}
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="text-sm text-gray-600 space-y-1 mb-8">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">배송지</h2>

@@ -21,3 +21,13 @@ export async function refreshMembershipTier(customerId: string | null | undefine
     data: { totalSpent, membershipTier },
   });
 }
+
+// 결제가 실제로 확정된 주문에 신규가입 쿠폰이 적용돼 있었다면, 그때 비로소 "사용됨"으로
+// 확정한다(주문만 생성되고 결제되지 않은 채 방치되는 경우 쿠폰을 낭비하지 않기 위함).
+export async function markWelcomeCouponUsedIfApplicable(
+  customerId: string | null | undefined,
+  couponApplied: boolean
+) {
+  if (!customerId || !couponApplied) return;
+  await prisma.user.update({ where: { id: customerId }, data: { welcomeCouponUsed: true } });
+}

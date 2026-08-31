@@ -6,15 +6,22 @@ export interface TierInfo {
   emoji: string;
   minAmount: number; // 이 등급이 되기 위한 누적 구매금액 기준
   color: string; // 배지 텍스트/배경에 쓸 tailwind 색상 계열
+  discountPercent: number; // 이 등급이 결제 시 자동으로 받는 할인율(%)
 }
 
 // 누적 구매금액(취소 제외) 기준 등급. 낮은 금액부터 순서대로 정렬돼 있어야 한다.
 export const TIERS: TierInfo[] = [
-  { tier: "SPROUT", label: "새싹", emoji: "🌱", minAmount: 0, color: "gray" },
-  { tier: "LEAF", label: "잎새", emoji: "🍃", minAmount: 100_000, color: "green" },
-  { tier: "FRUIT", label: "열매", emoji: "🍎", minAmount: 300_000, color: "amber" },
-  { tier: "GOLD", label: "황금열매", emoji: "🏆", minAmount: 700_000, color: "yellow" },
+  { tier: "SPROUT", label: "새싹", emoji: "🌱", minAmount: 0, color: "gray", discountPercent: 2 },
+  { tier: "LEAF", label: "잎새", emoji: "🍃", minAmount: 100_000, color: "green", discountPercent: 3 },
+  { tier: "FRUIT", label: "열매", emoji: "🍎", minAmount: 300_000, color: "amber", discountPercent: 4 },
+  { tier: "GOLD", label: "황금열매", emoji: "🏆", minAmount: 700_000, color: "yellow", discountPercent: 5 },
 ];
+
+export const WELCOME_COUPON_PERCENT = 7;
+
+export function getTierDiscountPercent(tier: MembershipTier): number {
+  return getTierInfo(tier).discountPercent;
+}
 
 export function computeTier(totalSpent: number): MembershipTier {
   let result: MembershipTier = "SPROUT";
