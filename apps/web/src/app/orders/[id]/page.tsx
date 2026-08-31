@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
+import { getCourierTrackingUrl } from "@/lib/courierTracking";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: "결제대기",
@@ -35,6 +36,7 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
 
   const isBankTransferPending = order.status === "PENDING_PAYMENT" && !order.payment?.method;
   const isCardPaymentIncomplete = order.status === "PENDING_PAYMENT" && !!order.payment?.method;
+  const trackingUrl = getCourierTrackingUrl(order.shipment?.courier, order.shipment?.trackingNumber);
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
@@ -107,6 +109,16 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
             <p className="text-xs">
               {order.shipment.courier} · 운송장번호 {order.shipment.trackingNumber}
             </p>
+          )}
+          {trackingUrl && (
+            <a
+              href={trackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-1 text-xs font-medium text-green-800 underline underline-offset-2 active:opacity-70"
+            >
+              배송조회하기 →
+            </a>
           )}
         </section>
       )}
