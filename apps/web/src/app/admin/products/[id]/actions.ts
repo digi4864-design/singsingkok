@@ -1,7 +1,6 @@
 "use server";
 
-import path from "node:path";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { computeSellingPrice } from "@/lib/pricing";
@@ -27,14 +26,14 @@ async function saveUploadedFile(productId: string, file: File, prefix: string): 
       `파일 용량이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 15MB 이하 파일을 사용해주세요.`
     );
   }
-  const dir = path.join(process.cwd(), "public", "products", productId);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
   const ext = extFromFile(file);
   const filename = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  writeFileSync(path.join(dir, filename), buffer);
-  return `/products/${productId}/${filename}`;
+  const blob = await put(`products/${productId}/${filename}`, buffer, {
+    access: "public",
+    addRandomSuffix: false,
+  });
+  return blob.url;
 }
 
 export async function updateProductAction(formData: FormData) {

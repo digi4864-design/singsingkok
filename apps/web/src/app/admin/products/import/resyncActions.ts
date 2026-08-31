@@ -1,9 +1,8 @@
 "use server";
 
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
-import { findProductDriveImages, downloadImagesToDir } from "@farm-mall/sync";
+import { findProductDriveImages, uploadImagesToBlob } from "@farm-mall/sync";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 export interface ResyncResult {
@@ -42,7 +41,6 @@ export async function resyncThumbnailsAction(): Promise<ResyncResult> {
   const products = await prisma.product.findMany({
     select: { id: true, name: true, thumbnailUrl: true, images: true, categoryId: true, isActive: true },
   });
-  const publicDir = path.join(process.cwd(), "public", "products");
 
   let updated = 0;
   let skipped = 0;
@@ -65,21 +63,20 @@ export async function resyncThumbnailsAction(): Promise<ResyncResult> {
         continue;
       }
 
-      const dir = path.join(publicDir, product.id);
       const data: { thumbnailUrl?: string; images?: string[]; categoryId?: string; isActive?: boolean } = {};
 
       if (needsThumbnail && match.thumbnailImages.length > 0) {
-        const saved = await downloadImagesToDir(match.thumbnailImages.slice(0, 1), dir, "thumb");
+        const saved = await uploadImagesToBlob(match.thumbnailImages.slice(0, 1), product.id, "thumb");
         if (saved[0]) {
-          data.thumbnailUrl = `/products/${product.id}/${saved[0]}`;
+          data.thumbnailUrl = saved[0];
           // 이미지를 못 찾아 비공개 처리됐던 상품이 이번에 썸네일을 확보하면 자동으로 공개 전환
           if (!product.isActive) data.isActive = true;
         }
       }
 
       if (needsDetail && match.detailImages.length > 0) {
-        const saved = await downloadImagesToDir(match.detailImages, dir, "detail");
-        if (saved.length > 0) data.images = saved.map((f) => `/products/${product.id}/${f}`);
+        const saved = await uploadImagesToBlob(match.detailImages, product.id, "detail");
+        if (saved.length > 0) data.images = saved;
       }
 
       if (needsCategory && match.categoryFolder) {

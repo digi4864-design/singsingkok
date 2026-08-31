@@ -1,8 +1,7 @@
 "use server";
 
-import path from "node:path";
 import { prisma } from "@farm-mall/db";
-import { parseChoigozipExcel, findProductDriveImages, downloadImagesToDir } from "@farm-mall/sync";
+import { parseChoigozipExcel, findProductDriveImages, uploadImagesToBlob } from "@farm-mall/sync";
 import { computeSellingPrice } from "@/lib/pricing";
 import { applyCategoryRules } from "@/lib/categoryRules";
 import { requireAdmin } from "@/lib/requireAdmin";
@@ -56,7 +55,6 @@ export async function importProductsAction(
 
   const rootFolderId = process.env.CHOIGOZIP_DRIVE_ROOT_FOLDER_ID;
   const hasDriveKey = Boolean(process.env.GOOGLE_DRIVE_API_KEY && rootFolderId);
-  const publicDir = path.join(process.cwd(), "public", "products");
   const brackets = await prisma.marginBracket.findMany({ orderBy: { minPrice: "asc" } });
 
   let createdProducts = 0;
@@ -129,13 +127,12 @@ export async function importProductsAction(
       const hasDetail = match.detailImages.length > 0;
 
       if (match.matched && (hasThumbnail || hasDetail)) {
-        const dir = path.join(publicDir, product.id);
-        const [thumbSaved, detailSaved] = await Promise.all([
-          hasThumbnail ? downloadImagesToDir(match.thumbnailImages.slice(0, 1), dir, "thumb") : [],
-          hasDetail ? downloadImagesToDir(match.detailImages, dir, "detail") : [],
+        const [thumbUrls, detailUrls] = await Promise.all([
+          hasThumbnail
+            ? uploadImagesToBlob(match.thumbnailImages.slice(0, 1), product.id, "thumb")
+            : [],
+          hasDetail ? uploadImagesToBlob(match.detailImages, product.id, "detail") : [],
         ]);
-        const thumbUrls = thumbSaved.map((f) => `/products/${product.id}/${f}`);
-        const detailUrls = detailSaved.map((f) => `/products/${product.id}/${f}`);
         // 메인 썸네일은 "사진" 폴더(없으면 다른 폴더에서 찾은 대체 사진) 우선, 그것도 없으면 상세페이지 이미지로 대체
         const thumbnailUrl = thumbUrls[0] ?? detailUrls[0];
         const images = detailUrls.length > 0 ? detailUrls : thumbUrls;

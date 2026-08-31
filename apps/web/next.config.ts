@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "20mb",
     },
   },
+  images: {
+    // 상품 이미지는 Vercel Blob(외부 도메인)에 저장되므로 next/image가 최적화하려면 허용해야 한다.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

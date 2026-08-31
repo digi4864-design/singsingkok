@@ -1,5 +1,4 @@
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { put } from "@vercel/blob";
 import { downloadFile, isFolder, listChildren, type DriveFile } from "./drive";
 
 const DETAIL_FOLDER_NAME = "상세페이지";
@@ -177,20 +176,25 @@ export async function findProductDriveImages(
   return { matched: false, detailImages: [], thumbnailImages: [] };
 }
 
-export async function downloadImagesToDir(
+// 구글 드라이브에서 내려받은 이미지를 Vercel Blob(영구 클라우드 저장소)에 업로드한다.
+// 서버리스 배포 환경(Vercel)은 로컬 파일시스템에 쓴 파일이 유지되지 않기 때문에,
+// 반드시 외부 저장소에 저장해야 배포된 사이트에서도 이미지가 계속 보인다.
+export async function uploadImagesToBlob(
   filesToSave: DriveFile[],
-  outDir: string,
+  pathPrefix: string,
   prefix: string
 ): Promise<string[]> {
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
-  const savedPaths: string[] = [];
+  const urls: string[] = [];
   for (let i = 0; i < filesToSave.length; i++) {
     const file = filesToSave[i];
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `${prefix}-${i + 1}.${ext}`;
     const buffer = await downloadFile(file.id);
-    writeFileSync(join(outDir, filename), buffer);
-    savedPaths.push(filename);
+    const blob = await put(`products/${pathPrefix}/${filename}`, buffer, {
+      access: "public",
+      addRandomSuffix: false,
+    });
+    urls.push(blob.url);
   }
-  return savedPaths;
+  return urls;
 }

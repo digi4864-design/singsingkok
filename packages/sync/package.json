@@ -7,6 +7,7 @@
   "types": "src/index.ts",
   "dependencies": {
     "@farm-mall/db": "*",
+    "@vercel/blob": "^2.8.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
