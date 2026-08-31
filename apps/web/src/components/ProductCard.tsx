@@ -26,7 +26,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group block relative rounded-xl overflow-hidden bg-gray-100 aspect-square"
+      className="group block relative rounded-xl overflow-hidden bg-gray-100 aspect-square transition-transform active:scale-[0.97]"
     >
       {product.thumbnailUrl ? (
         <Image

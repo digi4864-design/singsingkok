@@ -112,7 +112,7 @@ export default async function HomePage({
         />
         <button
           type="submit"
-          className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:border-primary"
+          className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:border-primary active:scale-95 transition-transform"
         >
           검색
         </button>
@@ -121,7 +121,7 @@ export default async function HomePage({
       <nav className="flex flex-wrap gap-2 mb-6">
         <Link
           href={q ? `/?q=${encodeURIComponent(q)}` : "/"}
-          className={`px-3 py-1.5 rounded-full text-sm border ${
+          className={`px-3 py-1.5 rounded-full text-sm border transition-transform active:scale-95 ${
             !categorySlug
               ? "bg-primary text-white border-primary"
               : "border-gray-300 text-gray-600 hover:border-primary"
@@ -133,7 +133,7 @@ export default async function HomePage({
           <Link
             key={c.id}
             href={`/?category=${c.slug}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`px-3 py-1.5 rounded-full text-sm border ${
+            className={`px-3 py-1.5 rounded-full text-sm border transition-transform active:scale-95 ${
               categorySlug === c.slug
                 ? "bg-primary text-white border-primary"
                 : "border-gray-300 text-gray-600 hover:border-primary"
@@ -207,7 +207,7 @@ export default async function HomePage({
               <Link
                 href={pageHref(Math.max(1, page - 1))}
                 aria-disabled={page <= 1}
-                className={`px-3 py-1.5 text-sm rounded-lg border ${
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-transform active:scale-95 ${
                   page <= 1
                     ? "border-gray-200 text-gray-300 pointer-events-none"
                     : "border-gray-300 text-gray-600 hover:border-primary"
@@ -221,7 +221,7 @@ export default async function HomePage({
               <Link
                 href={pageHref(Math.min(totalPages, page + 1))}
                 aria-disabled={page >= totalPages}
-                className={`px-3 py-1.5 text-sm rounded-lg border ${
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-transform active:scale-95 ${
                   page >= totalPages
                     ? "border-gray-200 text-gray-300 pointer-events-none"
                     : "border-gray-300 text-gray-600 hover:border-primary"

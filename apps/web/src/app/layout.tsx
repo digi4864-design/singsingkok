@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <InstallPrompt />
           <header className="border-b border-gray-200">
             <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-              <Link href="/">
+              <Link href="/" className="inline-block active:scale-95 transition-transform">
                 <Logo />
               </Link>
               <nav className="flex items-center gap-4 text-sm text-gray-500">

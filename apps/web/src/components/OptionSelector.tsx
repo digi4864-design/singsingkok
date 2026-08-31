@@ -114,13 +114,13 @@ export function OptionSelector({
           <div className="flex gap-3">
             <button
               onClick={handleAdd}
-              className="flex-1 py-3 rounded-lg border border-primary text-primary font-medium hover:bg-primary/5 transition-colors"
+              className="flex-1 py-3 rounded-lg border border-primary text-primary font-medium hover:bg-primary/5 active:bg-primary/10 active:scale-[0.98] transition"
             >
               장바구니 담기
             </button>
             <button
               onClick={handleBuyNow}
-              className="flex-1 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors"
+              className="flex-1 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover active:scale-[0.98] transition"
             >
               바로 구매
             </button>

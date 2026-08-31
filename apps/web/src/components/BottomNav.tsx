@@ -18,7 +18,7 @@ export async function BottomNav() {
         <Link
           key={item.label}
           href={item.href}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-primary"
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-primary active:bg-gray-100 transition-colors"
         >
           <span className="text-lg leading-none">{item.icon}</span>
           <span className="text-[11px]">{item.label}</span>

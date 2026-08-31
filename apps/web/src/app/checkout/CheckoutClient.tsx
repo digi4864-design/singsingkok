@@ -294,7 +294,7 @@ export function CheckoutClient({
         <button
           type="submit"
           disabled={isSubmitting || (paymentMethod === "CARD" && !widgets)}
-          className="w-full py-3.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+          className="w-full py-3.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover active:scale-[0.98] transition disabled:opacity-50 disabled:active:scale-100"
         >
           {isSubmitting
             ? "처리 중..."
