@@ -103,28 +103,69 @@ export interface UploadState {
   message: string;
 }
 
+const MAX_THUMBNAILS = 5;
+
 export async function uploadThumbnailAction(
   _prev: UploadState,
   formData: FormData
 ): Promise<UploadState> {
   await requireAdmin();
   const productId = String(formData.get("productId"));
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
+  const uploadedFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  if (uploadedFiles.length === 0) {
     return { ok: false, message: "업로드할 이미지를 선택해주세요." };
   }
 
   try {
-    const url = await saveUploadedFile(productId, file, "manual-thumb");
-    await prisma.product.update({ where: { id: productId }, data: { thumbnailUrl: url } });
+    const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+    const remainingSlots = MAX_THUMBNAILS - product.thumbnailImages.length;
+    if (remainingSlots <= 0) {
+      return { ok: false, message: `썸네일은 최대 ${MAX_THUMBNAILS}장까지 등록할 수 있습니다.` };
+    }
+    const filesToUpload = uploadedFiles.slice(0, remainingSlots);
+
+    const newUrls: string[] = [];
+    for (const file of filesToUpload) {
+      newUrls.push(await saveUploadedFile(productId, file, "manual-thumb"));
+    }
+
+    const thumbnailImages = [...product.thumbnailImages, ...newUrls];
+    await prisma.product.update({
+      where: { id: productId },
+      data: { thumbnailImages, thumbnailUrl: thumbnailImages[0] },
+    });
+
+    const skipped = uploadedFiles.length - filesToUpload.length;
+    revalidatePath(`/admin/products/${productId}`);
+    revalidatePath("/admin/products");
+    revalidatePath("/");
+    return {
+      ok: true,
+      message:
+        skipped > 0
+          ? `${filesToUpload.length}장 업로드됨. 최대 ${MAX_THUMBNAILS}장 제한으로 ${skipped}장은 건너뛰었습니다.`
+          : `${filesToUpload.length}장 업로드되었습니다.`,
+    };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
   }
+}
+
+export async function removeThumbnailImageAction(formData: FormData) {
+  await requireAdmin();
+  const productId = String(formData.get("productId"));
+  const url = String(formData.get("url"));
+
+  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  const thumbnailImages = product.thumbnailImages.filter((u) => u !== url);
+  await prisma.product.update({
+    where: { id: productId },
+    data: { thumbnailImages, thumbnailUrl: thumbnailImages[0] ?? null },
+  });
 
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/admin/products");
   revalidatePath("/");
-  return { ok: true, message: "썸네일이 업로드되었습니다." };
 }
 
 export async function uploadDetailImagesAction(

@@ -109,11 +109,18 @@ export async function resyncThumbnailsAction(batchSize = 15): Promise<ResyncResu
         return;
       }
 
-      const data: { thumbnailUrl?: string; images?: string[]; categoryId?: string; isActive?: boolean } = {};
+      const data: {
+        thumbnailUrl?: string;
+        thumbnailImages?: string[];
+        images?: string[];
+        categoryId?: string;
+        isActive?: boolean;
+      } = {};
 
       if (needsThumbnail && match.thumbnailImages.length > 0) {
-        const saved = await uploadImagesToBlob(match.thumbnailImages.slice(0, 1), product.id, "thumb");
-        if (saved[0]) {
+        const saved = await uploadImagesToBlob(match.thumbnailImages.slice(0, 5), product.id, "thumb");
+        if (saved.length > 0) {
+          data.thumbnailImages = saved;
           data.thumbnailUrl = saved[0];
           // 이미지를 못 찾아 비공개 처리됐던 상품이 이번에 썸네일을 확보하면 자동으로 공개 전환
           if (!product.isActive) data.isActive = true;

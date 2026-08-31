@@ -5,20 +5,30 @@ import { uploadThumbnailAction, type UploadState } from "./actions";
 
 const initialState: UploadState = { ok: true, message: "" };
 
-export function ThumbnailUploadForm({ productId }: { productId: string }) {
+export function ThumbnailUploadForm({
+  productId,
+  remainingSlots,
+}: {
+  productId: string;
+  remainingSlots: number;
+}) {
   const [state, formAction, isPending] = useActionState(uploadThumbnailAction, initialState);
+
+  if (remainingSlots <= 0) {
+    return <p className="text-xs text-gray-400">썸네일은 최대 5장까지 등록할 수 있습니다.</p>;
+  }
 
   return (
     <form action={formAction}>
       <input type="hidden" name="productId" value={productId} />
       <div className="flex items-center gap-2">
-        <input type="file" name="file" accept="image/*" required className="text-xs" />
+        <input type="file" name="files" accept="image/*" multiple required className="text-xs" />
         <button
           type="submit"
           disabled={isPending}
           className="px-3 py-1.5 text-xs rounded-lg border border-primary text-primary hover:bg-primary/5 shrink-0 disabled:opacity-50"
         >
-          {isPending ? "업로드 중..." : "썸네일 업로드"}
+          {isPending ? "업로드 중..." : `썸네일 추가 (${remainingSlots}장 더 가능)`}
         </button>
       </div>
       {state.message && (

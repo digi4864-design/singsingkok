@@ -2,7 +2,13 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
-import { updateProductAction, updateOptionPriceAction, resetOptionPriceAction, removeDetailImageAction } from "./actions";
+import {
+  updateProductAction,
+  updateOptionPriceAction,
+  resetOptionPriceAction,
+  removeDetailImageAction,
+  removeThumbnailImageAction,
+} from "./actions";
 import { ThumbnailUploadForm } from "./ThumbnailUploadForm";
 import { DetailImagesUploadForm } from "./DetailImagesUploadForm";
 
@@ -35,19 +41,41 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
       </p>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">대표 썸네일</h2>
-        <div className="flex items-center gap-4 mb-3">
-          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-            {product.thumbnailUrl ? (
-              <Image src={product.thumbnailUrl} alt={product.name} fill className="object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
-                이미지 없음
+        <h2 className="text-sm font-semibold text-gray-700 mb-2">
+          상품 썸네일 (최대 5장, 첫 번째가 대표 이미지로 쓰입니다)
+        </h2>
+        {product.thumbnailImages.length > 0 ? (
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {product.thumbnailImages.map((url, i) => (
+              <div key={url} className="relative">
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                  <Image src={url} alt="" fill className="object-cover" />
+                </div>
+                {i === 0 && (
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[10px] bg-primary text-white">
+                    대표
+                  </span>
+                )}
+                <form action={removeThumbnailImageAction} className="absolute top-1 right-1">
+                  <input type="hidden" name="productId" value={product.id} />
+                  <input type="hidden" name="url" value={url} />
+                  <button
+                    type="submit"
+                    className="w-5 h-5 rounded-full bg-black/60 text-white text-xs leading-5"
+                  >
+                    ×
+                  </button>
+                </form>
               </div>
-            )}
+            ))}
           </div>
-          <ThumbnailUploadForm productId={product.id} />
-        </div>
+        ) : (
+          <p className="text-xs text-gray-400 mb-3">등록된 썸네일이 없습니다.</p>
+        )}
+        <ThumbnailUploadForm
+          productId={product.id}
+          remainingSlots={5 - product.thumbnailImages.length}
+        />
 
         <h2 className="text-sm font-semibold text-gray-700 mb-2">상세페이지 이미지</h2>
         {product.images.length > 0 && (

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { OptionSelector } from "@/components/OptionSelector";
-import { WishlistButton } from "@/components/WishlistButton";
+import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
 import { auth } from "@/lib/auth";
 
@@ -41,38 +41,27 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
   const avgRating =
     reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : null;
 
-  const galleryImages =
+  const detailImages =
     product.images.length > 0 ? product.images : product.thumbnailUrl ? [product.thumbnailUrl] : [];
+  const thumbnailImages =
+    product.thumbnailImages.length > 0
+      ? product.thumbnailImages
+      : product.thumbnailUrl
+        ? [product.thumbnailUrl]
+        : [];
   const hasAvailableOption = product.options.some((o) => o.isAvailable);
   const displayName = product.displayName ?? product.name;
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
       <div className="grid md:grid-cols-2 gap-8">
-        <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-          {product.thumbnailUrl ? (
-            <Image
-              src={product.thumbnailUrl}
-              alt={displayName}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300">
-              이미지 준비중
-            </div>
-          )}
-          {!hasAvailableOption && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="text-white text-lg font-medium">품절</span>
-            </div>
-          )}
-          <div className="absolute top-3 right-3">
-            <WishlistButton productId={product.id} initialWishlisted={isWishlisted} />
-          </div>
-        </div>
+        <ProductGallery
+          images={thumbnailImages}
+          alt={displayName}
+          soldOut={!hasAvailableOption}
+          productId={product.id}
+          isWishlisted={isWishlisted}
+        />
 
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -108,11 +97,11 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         </div>
       </div>
 
-      {galleryImages.length > 0 && (
+      {detailImages.length > 0 && (
         <section className="mt-16">
           <h2 className="text-lg font-bold text-gray-900 mb-4">상세정보</h2>
           <div className="flex flex-col">
-            {galleryImages.map((src, i) => (
+            {detailImages.map((src, i) => (
               <div key={src} className="relative w-full">
                 <Image
                   src={src}
