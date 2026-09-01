@@ -19,9 +19,6 @@ export async function updateProfileAction(
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const zipCode = String(formData.get("zipCode") ?? "").trim();
-  const address = String(formData.get("address") ?? "").trim();
-  const addressDetail = String(formData.get("addressDetail") ?? "").trim();
 
   if (!name) {
     return { ok: false, message: "이름을 입력해주세요." };
@@ -32,13 +29,7 @@ export async function updateProfileAction(
 
   await prisma.user.update({
     where: { id: session.user.id },
-    data: {
-      name,
-      phone: phone || null,
-      zipCode: zipCode || null,
-      address: address || null,
-      addressDetail: addressDetail || null,
-    },
+    data: { name, phone: phone || null },
   });
 
   revalidatePath("/mypage/profile");

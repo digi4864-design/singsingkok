@@ -22,13 +22,14 @@ export default async function ProfilePage() {
 
       <h2 className="text-sm font-semibold text-gray-700 mb-2">기본 정보</h2>
       <div className="mb-8">
-        <ProfileInfoForm
-          name={user.name ?? ""}
-          phone={user.phone ?? ""}
-          zipCode={user.zipCode ?? ""}
-          address={user.address ?? ""}
-          addressDetail={user.addressDetail ?? ""}
-        />
+        <ProfileInfoForm name={user.name ?? ""} phone={user.phone ?? ""} />
+        <p className="text-xs text-gray-400 mt-2">
+          배송지는{" "}
+          <Link href="/mypage/addresses" className="text-primary hover:underline">
+            배송지 관리
+          </Link>
+          에서 등록·수정할 수 있습니다.
+        </p>
       </div>
 
       <h2 className="text-sm font-semibold text-gray-700 mb-2">비밀번호 변경</h2>
