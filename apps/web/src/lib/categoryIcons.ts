@@ -1,4 +1,5 @@
 const ICON_MAP: Record<string, string> = {
+  선물세트: "🎁",
   과일: "🍎",
   국내과일: "🍎",
   수입과일: "🍊",
