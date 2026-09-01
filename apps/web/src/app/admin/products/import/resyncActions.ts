@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
-import { findProductDriveImages, uploadImagesToBlob } from "@farm-mall/sync";
+import {
+  findProductDriveImages,
+  uploadImagesToBlob,
+  searchChoigozipProductImage,
+  uploadChoigozipImageToBlob,
+} from "@farm-mall/sync";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 export interface ResyncResult {
@@ -103,6 +108,23 @@ export async function resyncThumbnailsAction(batchSize = 15): Promise<ResyncResu
         product.name
       );
       if (!match.matched) {
+        // 구글 드라이브에서 못 찾았으면 최고집 공개 검색 API로 한 번 더 시도한다
+        // (로그인 없이 접근 가능한 공개 엔드포인트라 Cloudflare 봇 차단 위험이 없다).
+        if (needsThumbnail) {
+          const hit = await searchChoigozipProductImage(product.name).catch(() => null);
+          const uploaded = hit ? await uploadChoigozipImageToBlob(hit.imageUrl, product.id).catch(() => null) : null;
+          if (uploaded) {
+            const data: { thumbnailUrl: string; thumbnailImages: string[]; isActive?: boolean } = {
+              thumbnailUrl: uploaded,
+              thumbnailImages: [uploaded],
+            };
+            if (!product.isActive) data.isActive = true;
+            await prisma.product.update({ where: { id: product.id }, data });
+            updated++;
+            return;
+          }
+        }
+
         // 매칭 실패도 "시도했음"으로 표시해 다음 배치에서 뒤로 밀려나도록 한다.
         await prisma.product.update({ where: { id: product.id }, data: {} });
         skipped++;
