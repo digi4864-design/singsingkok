@@ -80,9 +80,10 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
             </p>
           )}
 
-          <p className="text-xs text-gray-400 mb-6">
+          <p className="text-xs text-gray-400 mb-1">
             원산지: {product.origin ?? "상품 상세페이지 참고 (미표기 시 판매자에게 문의)"}
           </p>
+          <p className="text-xs text-gray-400 mb-6">배송기간: 결제 확인 후 2~3일 이내 발송</p>
 
           <OptionSelector
             product={{ id: product.id, name: displayName, thumbnailUrl: product.thumbnailUrl }}

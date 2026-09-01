@@ -400,6 +400,7 @@ export function CheckoutClient({
         )}
 
         <div className="rounded-lg bg-gray-50 text-gray-500 text-[11px] px-3 py-2 space-y-1 leading-relaxed">
+          <p>배송기간: 결제 확인 후 2~3일 이내 발송됩니다.</p>
           {paymentMethod === "BANK_TRANSFER" && (
             <p>
               본 쇼핑몰은 [구매안전서비스(에스크로)] 및 소비자피해보상보험에 가입되어 있지 않은
