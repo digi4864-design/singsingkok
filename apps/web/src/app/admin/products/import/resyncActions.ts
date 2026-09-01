@@ -27,7 +27,9 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9가-힣-]/g, "");
 }
 
-const CONCURRENCY = 10;
+// 동시성이 너무 높으면 구글 드라이브 파일 다운로드가 "자동화된 요청"으로 감지되어
+// 403(봇 차단)을 맞을 수 있어(실제로 겪음) 너무 공격적으로 올리지 않는다.
+const CONCURRENCY = 6;
 // 상품명이 드라이브 폴더 구조와 잘 안 맞으면(카테고리 힌트 없이 전체 폴더를 뒤져야 해서)
 // 한 상품 매칭에만 아주 오래 걸릴 수 있다. 배치 전체가 이 한 상품 때문에 함수 실행시간
 // 제한을 넘기지 않도록 상품당 최대 대기 시간을 둔다 — 시간 초과되면 "건너뜀"으로 처리하고
@@ -101,43 +103,24 @@ export async function resyncThumbnailsAction(batchSize = 15): Promise<ResyncResu
     const needsDetail = product.images.length === 0;
     const needsCategory = !product.categoryId;
 
+    let hadError = false;
+    const data: {
+      thumbnailUrl?: string;
+      thumbnailImages?: string[];
+      images?: string[];
+      categoryId?: string;
+      isActive?: boolean;
+    } = {};
+
+    // 구글 드라이브 쪽(검색 자체와 파일 다운로드 모두)은 타임아웃이나 봇 차단(403)으로
+    // 실패할 수 있는데, 그렇더라도 아래 최고집 공개 API 폴백은 반드시 시도해야 하므로
+    // 이 블록만 별도로 감싼다 - 한 단계가 실패해도 나머지 단계는 계속 진행된다.
     try {
       const match = await withTimeout(
         findProductDriveImages(rootFolderId, product.name),
         PER_PRODUCT_TIMEOUT_MS,
         product.name
       );
-      if (!match.matched) {
-        // 구글 드라이브에서 못 찾았으면 최고집 공개 검색 API로 한 번 더 시도한다
-        // (로그인 없이 접근 가능한 공개 엔드포인트라 Cloudflare 봇 차단 위험이 없다).
-        if (needsThumbnail) {
-          const hit = await searchChoigozipProductImage(product.name).catch(() => null);
-          const uploaded = hit ? await uploadChoigozipImageToBlob(hit.imageUrl, product.id).catch(() => null) : null;
-          if (uploaded) {
-            const data: { thumbnailUrl: string; thumbnailImages: string[]; isActive?: boolean } = {
-              thumbnailUrl: uploaded,
-              thumbnailImages: [uploaded],
-            };
-            if (!product.isActive) data.isActive = true;
-            await prisma.product.update({ where: { id: product.id }, data });
-            updated++;
-            return;
-          }
-        }
-
-        // 매칭 실패도 "시도했음"으로 표시해 다음 배치에서 뒤로 밀려나도록 한다.
-        await prisma.product.update({ where: { id: product.id }, data: {} });
-        skipped++;
-        return;
-      }
-
-      const data: {
-        thumbnailUrl?: string;
-        thumbnailImages?: string[];
-        images?: string[];
-        categoryId?: string;
-        isActive?: boolean;
-      } = {};
 
       if (needsThumbnail && match.thumbnailImages.length > 0) {
         const saved = await uploadImagesToBlob(match.thumbnailImages.slice(0, 5), product.id, "thumb");
@@ -162,20 +145,38 @@ export async function resyncThumbnailsAction(batchSize = 15): Promise<ResyncResu
         });
         data.categoryId = category.id;
       }
-
-      if (Object.keys(data).length === 0) {
-        await prisma.product.update({ where: { id: product.id }, data: {} });
-        skipped++;
-        return;
-      }
-
-      await prisma.product.update({ where: { id: product.id }, data });
-      updated++;
     } catch (err) {
-      console.error(`이미지 재동기화 실패 (${product.name}):`, err);
-      await prisma.product.update({ where: { id: product.id }, data: {} }).catch(() => {});
-      failed++;
+      console.error(`드라이브 매칭 실패 (${product.name}):`, err);
+      hadError = true;
     }
+
+    // 구글 드라이브에 폴더가 아예 없거나, 폴더는 있지만 대표사진이 없거나, 위 단계가
+    // 실패했더라도(타임아웃/403 등) 최고집 공개 검색 API로 한 번 더 시도한다
+    // (로그인 없이 접근 가능한 공개 엔드포인트라 Cloudflare 봇 차단 위험이 없다).
+    if (needsThumbnail && !data.thumbnailUrl) {
+      try {
+        const hit = await searchChoigozipProductImage(product.name);
+        const uploaded = hit ? await uploadChoigozipImageToBlob(hit.imageUrl, product.id) : null;
+        if (uploaded) {
+          data.thumbnailImages = [uploaded];
+          data.thumbnailUrl = uploaded;
+          if (!product.isActive) data.isActive = true;
+        }
+      } catch (err) {
+        console.error(`최고집 이미지 검색 실패 (${product.name}):`, err);
+        hadError = true;
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      await prisma.product.update({ where: { id: product.id }, data: {} }).catch(() => {});
+      if (hadError) failed++;
+      else skipped++;
+      return;
+    }
+
+    await prisma.product.update({ where: { id: product.id }, data });
+    updated++;
   });
 
   const remaining = await prisma.product.count({ where: NEEDS_SYNC_WHERE });
