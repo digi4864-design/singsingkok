@@ -97,3 +97,27 @@ export async function cancelOrderAction(formData: FormData) {
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
 }
+
+// 결제대기 목록에서 여러 건을 한 번에 취소한다. 실수로 다른 상태의 주문이 섞여 체크되어도
+// PENDING_PAYMENT 상태인 것만 반영되도록 서버에서 다시 한번 필터링한다.
+export async function bulkCancelPendingAction(formData: FormData) {
+  await requireAdmin();
+  const orderIds = formData.getAll("orderIds").map(String).filter(Boolean);
+  if (orderIds.length === 0) return;
+
+  const orders = await prisma.order.findMany({
+    where: { id: { in: orderIds }, status: "PENDING_PAYMENT" },
+    select: { id: true, customerId: true },
+  });
+  if (orders.length === 0) return;
+
+  await prisma.order.updateMany({
+    where: { id: { in: orders.map((o) => o.id) } },
+    data: { status: "CANCELED" },
+  });
+
+  const customerIds = [...new Set(orders.map((o) => o.customerId).filter((id): id is string => Boolean(id)))];
+  await Promise.all(customerIds.map((id) => refreshMembershipTier(id)));
+
+  revalidatePath("/admin/orders");
+}
