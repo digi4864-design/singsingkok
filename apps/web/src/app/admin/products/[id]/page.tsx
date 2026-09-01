@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import {
-  updateProductAction,
   updateOptionPriceAction,
   resetOptionPriceAction,
   removeDetailImageAction,
@@ -11,6 +10,7 @@ import {
 } from "./actions";
 import { ThumbnailUploadForm } from "./ThumbnailUploadForm";
 import { DetailImagesUploadForm } from "./DetailImagesUploadForm";
+import { ProductInfoForm } from "./ProductInfoForm";
 
 export const dynamic = "force-dynamic";
 
@@ -102,60 +102,16 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
         <DetailImagesUploadForm productId={product.id} />
       </section>
 
-      <form action={updateProductAction} className="flex flex-wrap items-end gap-4 mb-8">
-        <input type="hidden" name="id" value={product.id} />
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">
-            쇼핑몰에 노출할 상품명
-          </label>
-          <input
-            name="displayName"
-            defaultValue={product.displayName ?? product.name}
-            placeholder={product.name}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-64"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">카테고리</label>
-          <select
-            name="categoryId"
-            defaultValue={product.categoryId ?? ""}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48"
-          >
-            <option value="">미지정</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">
-            원산지 (농수산물 원산지표시법 준수 필요)
-          </label>
-          <input
-            name="origin"
-            defaultValue={product.origin ?? ""}
-            placeholder="예: 국산(경북 청도), 미국산 등"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-64"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-gray-600 pb-2">
-          <input type="checkbox" name="isActive" defaultChecked={product.isActive} />
-          쇼핑몰에 공개
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-600 pb-2">
-          <input type="checkbox" name="isFeatured" defaultChecked={product.isFeatured} />
-          제철 베스트로 지정
-        </label>
-        <button
-          type="submit"
-          className="px-4 py-1.5 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover"
-        >
-          저장
-        </button>
-      </form>
+      <ProductInfoForm
+        productId={product.id}
+        productName={product.name}
+        displayName={product.displayName}
+        origin={product.origin}
+        categoryId={product.categoryId}
+        isActive={product.isActive}
+        isFeatured={product.isFeatured}
+        categories={categories}
+      />
       {!product.origin && (
         <p className="text-xs text-red-500 -mt-6 mb-8">
           ⚠ 원산지가 등록되지 않았습니다. 농수산물의 원산지 표시에 관한 법률상 원산지 표시는
