@@ -20,37 +20,38 @@ export function OrderActions({
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnState, returnAction, returnPending] = useActionState(requestReturnAction, initialReturnState);
 
-  if (status === "SHIPPING") {
-    return (
-      <section className="mb-8">
-        <form
-          action={confirmDeliveryAction}
-          onSubmit={(e) => {
-            if (
-              !confirm(
-                "상품을 정상적으로 수령하셨나요?\n확인 시 구매확정 처리되며 배송완료 상태로 변경됩니다."
-              )
-            ) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <input type="hidden" name="orderId" value={orderId} />
-          <button
-            type="submit"
-            className="w-full py-2.5 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover font-medium"
-          >
-            배송완료 확인 (구매확정)
-          </button>
-        </form>
-      </section>
-    );
-  }
-
-  if (status === "DELIVERED") {
+  if (status === "SHIPPING" || status === "DELIVERED") {
     return (
       <section className="mb-8 space-y-3">
-        {reviewLinks.length > 0 && (
+        {status === "SHIPPING" && (
+          <div>
+            <form
+              action={confirmDeliveryAction}
+              onSubmit={(e) => {
+                if (
+                  !confirm(
+                    "상품을 정상적으로 수령하셨나요?\n확인 시 구매확정 처리되며 배송완료 상태로 변경됩니다."
+                  )
+                ) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              <input type="hidden" name="orderId" value={orderId} />
+              <button
+                type="submit"
+                className="w-full py-2.5 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover font-medium"
+              >
+                배송완료 확인 (구매확정)
+              </button>
+            </form>
+            <p className="text-xs text-gray-400 mt-1.5">
+              상품에 문제가 있다면 구매확정 대신 아래에서 반품/교환을 요청해주세요.
+            </p>
+          </div>
+        )}
+
+        {status === "DELIVERED" && reviewLinks.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-gray-700 mb-2">리뷰 작성</h2>
             <div className="flex flex-wrap gap-2">
@@ -73,16 +74,16 @@ export function OrderActions({
             onClick={() => setShowReturnForm(true)}
             className="text-xs text-gray-400 hover:text-red-500 underline"
           >
-            반품 요청하기
+            반품/교환 요청하기
           </button>
         ) : (
           <form action={returnAction} className="space-y-2 border border-gray-200 rounded-lg p-3">
             <input type="hidden" name="orderId" value={orderId} />
-            <label className="block text-xs text-gray-500">반품 사유</label>
+            <label className="block text-xs text-gray-500">반품/교환 사유</label>
             <textarea
               name="reason"
               rows={2}
-              placeholder="반품 사유를 입력해주세요."
+              placeholder="반품·교환·환불 중 원하시는 처리와 사유를 함께 적어주세요."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
             {returnState.message && (
@@ -96,7 +97,7 @@ export function OrderActions({
                 disabled={returnPending}
                 className="px-4 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
               >
-                반품 요청 제출
+                반품/교환 요청 제출
               </button>
               <button
                 type="button"
@@ -115,7 +116,7 @@ export function OrderActions({
   if (status === "RETURN_REQUESTED") {
     return (
       <section className="mb-8 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-3">
-        <p className="font-medium mb-1">반품 요청이 접수되었습니다.</p>
+        <p className="font-medium mb-1">반품/교환 요청이 접수되었습니다.</p>
         {returnReason && <p className="text-xs">사유: {returnReason}</p>}
       </section>
     );

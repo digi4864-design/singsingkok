@@ -25,6 +25,29 @@ export async function addBracketAction(formData: FormData) {
   revalidatePath("/admin/pricing");
 }
 
+export async function updateBracketAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id"));
+  const minPrice = Number(formData.get("minPrice"));
+  const maxPriceRaw = String(formData.get("maxPrice") ?? "").trim();
+  const marginPercent = Number(formData.get("marginPercent"));
+
+  if (!Number.isFinite(minPrice) || !Number.isFinite(marginPercent)) {
+    throw new Error("최소 가격과 마진율을 올바르게 입력해주세요.");
+  }
+
+  await prisma.marginBracket.update({
+    where: { id },
+    data: {
+      minPrice,
+      maxPrice: maxPriceRaw ? Number(maxPriceRaw) : null,
+      marginPercent,
+    },
+  });
+
+  revalidatePath("/admin/pricing");
+}
+
 export async function deleteBracketAction(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id"));

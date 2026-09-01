@@ -1,6 +1,5 @@
 import { prisma } from "@farm-mall/db";
-import { formatWon } from "@/lib/format";
-import { addBracketAction, deleteBracketAction } from "./actions";
+import { addBracketAction, updateBracketAction, deleteBracketAction } from "./actions";
 import { RecalcButton } from "./RecalcButton";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +35,50 @@ export default async function PricingPage() {
           )}
           {brackets.map((b) => (
             <tr key={b.id}>
-              <td className="px-4 py-2">{formatWon(b.minPrice)}</td>
-              <td className="px-4 py-2">{b.maxPrice !== null ? formatWon(b.maxPrice) : "이상 전체"}</td>
-              <td className="px-4 py-2">{b.marginPercent}%</td>
-              <td className="px-4 py-2 text-right">
-                <form action={deleteBracketAction}>
+              <td className="px-4 py-2">
+                <form id={`bracket-${b.id}`} action={updateBracketAction}>
+                  <input type="hidden" name="id" value={b.id} />
+                </form>
+                <input
+                  form={`bracket-${b.id}`}
+                  name="minPrice"
+                  type="number"
+                  required
+                  defaultValue={b.minPrice}
+                  className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                />
+              </td>
+              <td className="px-4 py-2">
+                <input
+                  form={`bracket-${b.id}`}
+                  name="maxPrice"
+                  type="number"
+                  defaultValue={b.maxPrice ?? undefined}
+                  placeholder="이상 전체"
+                  className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                />
+              </td>
+              <td className="px-4 py-2">
+                <input
+                  form={`bracket-${b.id}`}
+                  name="marginPercent"
+                  type="number"
+                  step="0.1"
+                  required
+                  defaultValue={b.marginPercent}
+                  className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                />
+                %
+              </td>
+              <td className="px-4 py-2 text-right whitespace-nowrap">
+                <button
+                  form={`bracket-${b.id}`}
+                  type="submit"
+                  className="text-xs text-primary hover:underline mr-3"
+                >
+                  저장
+                </button>
+                <form action={deleteBracketAction} className="inline">
                   <input type="hidden" name="id" value={b.id} />
                   <button type="submit" className="text-xs text-gray-400 hover:text-red-500">
                     삭제
