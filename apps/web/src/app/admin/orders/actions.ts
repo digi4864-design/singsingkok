@@ -59,6 +59,21 @@ export async function markPreparingAction(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+// 결제완료 목록에서 여러 건을 한 번에 배송준비중으로 바꾼다. 실수로 다른 상태의 주문이
+// 섞여 체크되어도 PAID 상태인 것만 반영되도록 서버에서 다시 한번 필터링한다.
+export async function bulkMarkPreparingAction(formData: FormData) {
+  await requireAdmin();
+  const orderIds = formData.getAll("orderIds").map(String).filter(Boolean);
+  if (orderIds.length === 0) return;
+
+  await prisma.order.updateMany({
+    where: { id: { in: orderIds }, status: "PAID" },
+    data: { status: "PREPARING" },
+  });
+
+  revalidatePath("/admin/orders");
+}
+
 export async function markDeliveredAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));

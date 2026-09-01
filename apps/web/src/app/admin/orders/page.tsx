@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma, OrderStatus } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
+import { bulkMarkPreparingAction } from "./actions";
+import { SelectAllCheckbox } from "./SelectAllCheckbox";
 
 export const dynamic = "force-dynamic";
 
@@ -119,63 +121,82 @@ export default async function AdminOrdersPage({
         </div>
       </div>
 
-      <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
-        <thead className="bg-gray-50 text-gray-500">
-          <tr>
-            <th className="text-left px-4 py-2 font-medium">주문번호</th>
-            <th className="text-left px-4 py-2 font-medium">받는 분</th>
-            <th className="text-left px-4 py-2 font-medium">상품</th>
-            <th className="text-left px-4 py-2 font-medium">금액</th>
-            <th className="text-left px-4 py-2 font-medium">카드수수료</th>
-            <th className="text-left px-4 py-2 font-medium">원가</th>
-            <th className="text-left px-4 py-2 font-medium">마진금액</th>
-            <th className="text-left px-4 py-2 font-medium">상태</th>
-            <th className="text-left px-4 py-2 font-medium">주문일시</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {orders.length === 0 && (
+      <form action={bulkMarkPreparingAction}>
+        <div className="flex items-center justify-end mb-2">
+          <button
+            type="submit"
+            className="px-3 py-1.5 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover"
+          >
+            선택한 결제완료 주문 배송준비중으로 변경
+          </button>
+        </div>
+
+        <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+          <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
-                주문이 없습니다.
-              </td>
+              <th className="text-left px-4 py-2 font-medium w-8">
+                <SelectAllCheckbox name="orderIds" />
+              </th>
+              <th className="text-left px-4 py-2 font-medium">주문번호</th>
+              <th className="text-left px-4 py-2 font-medium">받는 분</th>
+              <th className="text-left px-4 py-2 font-medium">상품</th>
+              <th className="text-left px-4 py-2 font-medium">금액</th>
+              <th className="text-left px-4 py-2 font-medium">카드수수료</th>
+              <th className="text-left px-4 py-2 font-medium">원가</th>
+              <th className="text-left px-4 py-2 font-medium">마진금액</th>
+              <th className="text-left px-4 py-2 font-medium">상태</th>
+              <th className="text-left px-4 py-2 font-medium">주문일시</th>
             </tr>
-          )}
-          {orders.map((o) => {
-            const cardFee = computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent);
-            const cost = computeTotalCost(o.items);
-            const margin = computeMarginAmount(o.totalAmount, o.payment?.method, cardFeePercent, cost);
-            return (
-            <tr key={o.id} className={o.status === "CANCELED" ? "opacity-50" : undefined}>
-              <td className="px-4 py-2">
-                <Link href={`/admin/orders/${o.id}`} className="hover:text-primary">
-                  {o.orderNo}
-                </Link>
-              </td>
-              <td className="px-4 py-2 text-gray-600">{o.recipientName}</td>
-              <td className="px-4 py-2 text-gray-500">
-                {o.items[0]?.productName}
-                {o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ""}
-              </td>
-              <td className="px-4 py-2">{formatWon(o.totalAmount)}</td>
-              <td className="px-4 py-2 text-gray-500">
-                {cardFee > 0 ? `-${formatWon(cardFee)}` : "-"}
-              </td>
-              <td className="px-4 py-2 text-gray-500">-{formatWon(cost)}</td>
-              <td className="px-4 py-2 font-medium text-primary">{formatWon(margin)}</td>
-              <td className="px-4 py-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[o.status]}`}>
-                  {STATUS_LABEL[o.status] ?? o.status}
-                </span>
-              </td>
-              <td className="px-4 py-2 text-gray-400 text-xs">
-                {o.createdAt.toLocaleString("ko-KR")}
-              </td>
-            </tr>
-            );
-          })}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {orders.length === 0 && (
+              <tr>
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-400">
+                  주문이 없습니다.
+                </td>
+              </tr>
+            )}
+            {orders.map((o) => {
+              const cardFee = computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent);
+              const cost = computeTotalCost(o.items);
+              const margin = computeMarginAmount(o.totalAmount, o.payment?.method, cardFeePercent, cost);
+              return (
+              <tr key={o.id} className={o.status === "CANCELED" ? "opacity-50" : undefined}>
+                <td className="px-4 py-2">
+                  {o.status === "PAID" && (
+                    <input type="checkbox" name="orderIds" value={o.id} aria-label="선택" />
+                  )}
+                </td>
+                <td className="px-4 py-2">
+                  <Link href={`/admin/orders/${o.id}`} className="hover:text-primary">
+                    {o.orderNo}
+                  </Link>
+                </td>
+                <td className="px-4 py-2 text-gray-600">{o.recipientName}</td>
+                <td className="px-4 py-2 text-gray-500">
+                  {o.items[0]?.productName}
+                  {o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ""}
+                </td>
+                <td className="px-4 py-2">{formatWon(o.totalAmount)}</td>
+                <td className="px-4 py-2 text-gray-500">
+                  {cardFee > 0 ? `-${formatWon(cardFee)}` : "-"}
+                </td>
+                <td className="px-4 py-2 text-gray-500">-{formatWon(cost)}</td>
+                <td className="px-4 py-2 font-medium text-primary">{formatWon(margin)}</td>
+                <td className="px-4 py-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[o.status]}`}>
+                    {STATUS_LABEL[o.status] ?? o.status}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-gray-400 text-xs">
+                  {o.createdAt.toLocaleString("ko-KR")}
+                </td>
+              </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </form>
     </div>
   );
 }
