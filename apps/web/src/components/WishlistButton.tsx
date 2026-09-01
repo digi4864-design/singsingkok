@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toggleWishlistAction } from "@/app/wishlist/actions";
 
 export function WishlistButton({
@@ -16,6 +16,7 @@ export function WishlistButton({
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
@@ -23,7 +24,7 @@ export function WishlistButton({
     startTransition(async () => {
       const res = await toggleWishlistAction(productId);
       if (!res.ok) {
-        router.push("/login");
+        router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
         return;
       }
       setWishlisted(res.wishlisted);

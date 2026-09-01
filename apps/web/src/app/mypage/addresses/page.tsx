@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AddressesPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/login?callbackUrl=/mypage/addresses");
 
   const addresses = await prisma.address.findMany({
     where: { userId: session.user.id },

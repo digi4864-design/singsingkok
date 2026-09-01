@@ -6,13 +6,14 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = { ok: true, message: "" };
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
   // 비밀번호를 틀려도 이메일은 다시 입력하지 않도록 보존한다.
   const [email, setEmail] = useState("");
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
       <div>
         <label className="block text-xs text-gray-500 mb-1">이메일</label>
         <input

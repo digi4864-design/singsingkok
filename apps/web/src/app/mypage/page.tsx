@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function MyPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/login?callbackUrl=/mypage");
 
   const [orders, user] = await Promise.all([
     prisma.order.findMany({
