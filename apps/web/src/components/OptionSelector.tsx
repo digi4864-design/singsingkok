@@ -62,7 +62,7 @@ export function OptionSelector({
     );
     setShowToast(true);
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setShowToast(false), 2200);
+    toastTimer.current = setTimeout(() => setShowToast(false), 3000);
   }
 
   function handleBuyNow() {
@@ -142,8 +142,10 @@ export function OptionSelector({
       <div
         role="status"
         aria-live="polite"
-        className={`fixed inset-x-0 bottom-20 md:bottom-6 z-50 flex justify-center px-4 transition-all duration-300 ${
-          showToast ? "opacity-100 translate-y-0" : "pointer-events-none opacity-0 translate-y-2"
+        className={`fixed inset-x-0 bottom-20 md:inset-x-auto md:bottom-8 md:right-8 z-50 flex justify-center md:justify-end px-4 md:px-0 transition-all duration-300 ${
+          showToast
+            ? "opacity-100 translate-y-0"
+            : "pointer-events-none opacity-0 translate-y-2 md:translate-y-0 md:translate-x-2"
         }`}
       >
         <div className="flex items-center gap-3 bg-gray-900 text-white text-sm rounded-full pl-4 pr-2 py-2 shadow-lg max-w-full">
