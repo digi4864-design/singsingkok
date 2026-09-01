@@ -144,6 +144,20 @@ export async function importProductsAction(
     }
   });
 
+  // sourceOptionId(관리코드)가 다른 상품으로 재배정되면 기존 상품은 옵션이 0개로 남을 수 있다
+  // (예: 최고집이 같은 관리코드를 다른 상품명에 재사용한 경우). 이번 배치에서 다루지 않은
+  // 상품도 영향받을 수 있으므로 전체 공개 상품을 대상으로 점검한다.
+  const zeroOptionProducts = await prisma.product.findMany({
+    where: { isActive: true, options: { none: {} } },
+    select: { id: true },
+  });
+  if (zeroOptionProducts.length > 0) {
+    await prisma.product.updateMany({
+      where: { id: { in: zeroOptionProducts.map((p) => p.id) } },
+      data: { isActive: false },
+    });
+  }
+
   await applyCategoryRules();
 
   await prisma.importRun.update({
