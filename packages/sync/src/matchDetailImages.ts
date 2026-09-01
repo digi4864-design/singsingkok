@@ -1,5 +1,9 @@
 import { put } from "@vercel/blob";
 import { downloadFile, isFolder, listChildren, type DriveFile } from "./drive";
+import { compressImage } from "./imageCompress";
+
+const THUMB_MAX_WIDTH = 1200;
+const DETAIL_MAX_WIDTH = 1600;
 
 const DETAIL_FOLDER_NAME = "상세페이지";
 const PHOTO_FOLDER_NAME = "사진";
@@ -184,15 +188,18 @@ export async function uploadImagesToBlob(
   pathPrefix: string,
   prefix: string
 ): Promise<string[]> {
+  const maxWidth = prefix === "thumb" ? THUMB_MAX_WIDTH : DETAIL_MAX_WIDTH;
   const urls: string[] = [];
   for (let i = 0; i < filesToSave.length; i++) {
     const file = filesToSave[i];
-    const ext = file.name.split(".").pop() || "jpg";
+    const raw = await downloadFile(file.id);
+    const { buffer, ext, contentType } = await compressImage(raw, maxWidth);
     const filename = `${prefix}-${i + 1}.${ext}`;
-    const buffer = await downloadFile(file.id);
     const blob = await put(`products/${pathPrefix}/${filename}`, buffer, {
       access: "public",
       addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType,
     });
     urls.push(blob.url);
   }

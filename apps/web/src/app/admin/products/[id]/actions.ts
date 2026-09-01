@@ -3,17 +3,14 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
+import { compressImage } from "@farm-mall/sync";
 import { computeSellingPrice } from "@/lib/pricing";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-
-function extFromFile(file: File): string {
-  const fromName = file.name.split(".").pop();
-  if (fromName && fromName.length <= 5) return fromName.toLowerCase();
-  return file.type === "image/png" ? "png" : "jpg";
-}
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (업로드 후 압축되므로 원본은 넉넉하게 허용)
+const THUMB_MAX_WIDTH = 1200;
+const DETAIL_MAX_WIDTH = 1600;
 
 async function saveUploadedFile(productId: string, file: File, prefix: string): Promise<string> {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
@@ -23,15 +20,17 @@ async function saveUploadedFile(productId: string, file: File, prefix: string): 
   }
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(
-      `파일 용량이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 15MB 이하 파일을 사용해주세요.`
+      `파일 용량이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 25MB 이하 파일을 사용해주세요.`
     );
   }
-  const ext = extFromFile(file);
+  const raw = Buffer.from(await file.arrayBuffer());
+  const maxWidth = prefix.includes("thumb") ? THUMB_MAX_WIDTH : DETAIL_MAX_WIDTH;
+  const { buffer, ext, contentType } = await compressImage(raw, maxWidth);
   const filename = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
   const blob = await put(`products/${productId}/${filename}`, buffer, {
     access: "public",
     addRandomSuffix: false,
+    contentType,
   });
   return blob.url;
 }
