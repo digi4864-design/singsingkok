@@ -63,6 +63,13 @@ export async function importTrackingAction(
     const r = rows[i];
     let order = r.orderNo ? byOrderNo.get(r.orderNo.trim()) : undefined;
 
+    // 한 주문에 상품이 여러 개면 발주 엑셀의 거래처주문번호가 "ORD123-2"처럼 줄 번호가
+    // 붙어 내려오므로, 그대로는 못 찾으면 뒤의 "-숫자"를 떼고 다시 찾는다.
+    if (!order && r.orderNo) {
+      const base = r.orderNo.trim().replace(/-\d+$/, "");
+      if (base !== r.orderNo.trim()) order = byOrderNo.get(base);
+    }
+
     if (!order && r.recipientPhone) {
       const candidates = byPhone.get(normalizePhone(r.recipientPhone)) ?? [];
       if (candidates.length === 1) {
