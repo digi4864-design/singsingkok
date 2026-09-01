@@ -45,6 +45,23 @@ export default async function AdminSettingsPage() {
           />
         </div>
 
+        <h2 className="text-sm font-semibold text-gray-700 pt-4 border-t border-gray-200">
+          카드결제 수수료
+        </h2>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            카드 PG 수수료율 (%) — 주문/배송 관리의 마진금액 계산에 사용됩니다
+          </label>
+          <input
+            name="cardFeePercent"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={setting?.cardFeePercent ?? 3.2}
+            className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
         <h2 className="text-sm font-semibold text-gray-700 pt-4 border-t border-gray-200">입금 계좌</h2>
         <div>
           <label className="block text-xs text-gray-500 mb-1">은행명</label>

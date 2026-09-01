@@ -59,6 +59,7 @@ model StoreSetting {
   promoBannerEnabled     Boolean  @default(false) // 메인페이지 상단 홍보 배너 노출 여부
   promoBannerText        String?  // 배너에 노출할 홍보 문구
   promoBannerLink        String?  // 배너 클릭 시 이동할 경로(예: /signup). 비어있으면 클릭 불가
+  cardFeePercent         Float    @default(3.2) // 카드결제 PG 수수료율(%) - 마진 계산 시 카드 결제 주문에서만 차감
   updatedAt              DateTime @updatedAt
 }
 

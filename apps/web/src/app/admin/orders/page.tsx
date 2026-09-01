@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma, OrderStatus } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
+import { computeCardFee, computeMarginAmount } from "@/lib/margin";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +40,25 @@ export default async function AdminOrdersPage({
 }) {
   const { status } = await searchParams;
 
-  const orders = await prisma.order.findMany({
-    where: status ? { status: status as OrderStatus } : undefined,
-    include: { items: true, shipment: true, payment: true },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const [orders, setting] = await Promise.all([
+    prisma.order.findMany({
+      where: status ? { status: status as OrderStatus } : undefined,
+      include: { items: true, shipment: true, payment: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.storeSetting.findUnique({ where: { id: "default" } }),
+  ]);
+  const cardFeePercent = setting?.cardFeePercent ?? 3.2;
+
+  // 취소된 주문은 실제 매출이 아니므로 합계에서 제외한다.
+  const liveOrders = orders.filter((o) => o.status !== "CANCELED");
+  const totalRevenue = liveOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalCardFee = liveOrders.reduce(
+    (sum, o) => sum + computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent),
+    0
+  );
+  const totalMargin = totalRevenue - totalCardFee;
 
   return (
     <div>
@@ -82,6 +96,21 @@ export default async function AdminOrdersPage({
         ))}
       </nav>
 
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-xs text-gray-400">결제금액 합계 (취소 제외)</p>
+          <p className="text-base font-bold text-gray-900">{formatWon(totalRevenue)}</p>
+        </div>
+        <div className="rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-xs text-gray-400">카드수수료 합계 ({cardFeePercent}%)</p>
+          <p className="text-base font-bold text-red-500">-{formatWon(totalCardFee)}</p>
+        </div>
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <p className="text-xs text-primary">마진금액 합계</p>
+          <p className="text-base font-bold text-primary">{formatWon(totalMargin)}</p>
+        </div>
+      </div>
+
       <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
         <thead className="bg-gray-50 text-gray-500">
           <tr>
@@ -89,6 +118,8 @@ export default async function AdminOrdersPage({
             <th className="text-left px-4 py-2 font-medium">받는 분</th>
             <th className="text-left px-4 py-2 font-medium">상품</th>
             <th className="text-left px-4 py-2 font-medium">금액</th>
+            <th className="text-left px-4 py-2 font-medium">카드수수료</th>
+            <th className="text-left px-4 py-2 font-medium">마진금액</th>
             <th className="text-left px-4 py-2 font-medium">상태</th>
             <th className="text-left px-4 py-2 font-medium">주문일시</th>
           </tr>
@@ -96,13 +127,16 @@ export default async function AdminOrdersPage({
         <tbody className="divide-y divide-gray-100">
           {orders.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+              <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
                 주문이 없습니다.
               </td>
             </tr>
           )}
-          {orders.map((o) => (
-            <tr key={o.id}>
+          {orders.map((o) => {
+            const cardFee = computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent);
+            const margin = o.totalAmount - cardFee;
+            return (
+            <tr key={o.id} className={o.status === "CANCELED" ? "opacity-50" : undefined}>
               <td className="px-4 py-2">
                 <Link href={`/admin/orders/${o.id}`} className="hover:text-primary">
                   {o.orderNo}
@@ -114,6 +148,10 @@ export default async function AdminOrdersPage({
                 {o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ""}
               </td>
               <td className="px-4 py-2">{formatWon(o.totalAmount)}</td>
+              <td className="px-4 py-2 text-gray-500">
+                {cardFee > 0 ? `-${formatWon(cardFee)}` : "-"}
+              </td>
+              <td className="px-4 py-2 font-medium text-primary">{formatWon(margin)}</td>
               <td className="px-4 py-2">
                 <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[o.status]}`}>
                   {STATUS_LABEL[o.status] ?? o.status}
@@ -123,7 +161,8 @@ export default async function AdminOrdersPage({
                 {o.createdAt.toLocaleString("ko-KR")}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

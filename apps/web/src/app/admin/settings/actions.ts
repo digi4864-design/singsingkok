@@ -8,8 +8,12 @@ export async function updateStoreSettingAction(formData: FormData) {
   await requireAdmin();
 
   const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const cardFeePercentInput = Number(formData.get("cardFeePercent"));
+  const cardFeePercent =
+    Number.isFinite(cardFeePercentInput) && cardFeePercentInput >= 0 ? cardFeePercentInput : 3.2;
 
   const data = {
+    cardFeePercent,
     promoBannerEnabled: formData.get("promoBannerEnabled") === "on",
     promoBannerText: field("promoBannerText"),
     promoBannerLink: field("promoBannerLink"),

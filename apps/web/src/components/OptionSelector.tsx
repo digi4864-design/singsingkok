@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { formatWon } from "@/lib/format";
 import { QuantityStepper } from "@/components/QuantityStepper";
@@ -30,6 +31,14 @@ export function OptionSelector({
   );
   const [optionId, setOptionId] = useState(defaultOption?.id ?? "");
   const [quantity, setQuantity] = useState(1);
+  const [showToast, setShowToast] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const selected = options.find((o) => o.id === optionId);
   const hasDiscount = Boolean(
@@ -51,6 +60,9 @@ export function OptionSelector({
       },
       quantity
     );
+    setShowToast(true);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setShowToast(false), 2200);
   }
 
   function handleBuyNow() {
@@ -126,6 +138,27 @@ export function OptionSelector({
           품절된 옵션입니다
         </button>
       )}
+
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed inset-x-0 bottom-20 md:bottom-6 z-50 flex justify-center px-4 transition-all duration-300 ${
+          showToast ? "opacity-100 translate-y-0" : "pointer-events-none opacity-0 translate-y-2"
+        }`}
+      >
+        <div className="flex items-center gap-3 bg-gray-900 text-white text-sm rounded-full pl-4 pr-2 py-2 shadow-lg max-w-full">
+          <span className="shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-xs">
+            ✓
+          </span>
+          <span className="truncate">장바구니에 담았어요</span>
+          <Link
+            href="/cart"
+            className="shrink-0 bg-white/15 hover:bg-white/25 rounded-full px-3 py-1 text-xs font-medium transition"
+          >
+            장바구니 보기
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

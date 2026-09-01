@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
+import { computeCardFee } from "@/lib/margin";
 import {
   confirmPaymentAction,
   saveShipmentAction,
@@ -25,12 +26,19 @@ const COURIER_OPTIONS = ["CJ대한통운", "우체국택배", "롯데택배", "�
 export default async function AdminOrderDetailPage(props: PageProps<"/admin/orders/[id]">) {
   const { id } = await props.params;
 
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: { items: true, payment: true, shipment: true, customer: true },
-  });
+  const [order, setting] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: { items: true, payment: true, shipment: true, customer: true },
+    }),
+    prisma.storeSetting.findUnique({ where: { id: "default" } }),
+  ]);
 
   if (!order) notFound();
+
+  const cardFeePercent = setting?.cardFeePercent ?? 3.2;
+  const cardFee = computeCardFee(order.totalAmount, order.payment?.method, cardFeePercent);
+  const marginAmount = order.totalAmount - cardFee;
 
   return (
     <div className="max-w-2xl">
@@ -82,6 +90,20 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
           상태: {order.payment?.status === "DONE" ? "입금/결제 확인됨" : "미확인"}
           {order.payment?.method ? ` (${order.payment.method})` : ""}
         </p>
+        <div className="text-sm space-y-1 mb-3 bg-gray-50 rounded-lg px-3 py-2">
+          <div className="flex justify-between text-gray-500">
+            <span>결제금액</span>
+            <span>{formatWon(order.totalAmount)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>카드수수료{cardFee > 0 ? ` (${cardFeePercent}%)` : ""}</span>
+            <span>{cardFee > 0 ? `-${formatWon(cardFee)}` : "해당없음"}</span>
+          </div>
+          <div className="flex justify-between font-semibold text-primary pt-1 border-t border-gray-200">
+            <span>마진금액</span>
+            <span>{formatWon(marginAmount)}</span>
+          </div>
+        </div>
         {order.payment?.status !== "DONE" && (
           <form action={confirmPaymentAction}>
             <input type="hidden" name="orderId" value={order.id} />
