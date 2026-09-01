@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma, OrderStatus } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
-import { computeCardFee, computeMarginAmount } from "@/lib/margin";
+import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,7 @@ const STATUS_TABS: { value?: string; label: string }[] = [
   { value: "PREPARING", label: "배송준비중" },
   { value: "SHIPPING", label: "배송중" },
   { value: "DELIVERED", label: "배송완료" },
+  { value: "RETURN_REQUESTED", label: "반품요청" },
   { value: "CANCELED", label: "취소" },
 ];
 
@@ -21,6 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
   PREPARING: "배송준비중",
   SHIPPING: "배송중",
   DELIVERED: "배송완료",
+  RETURN_REQUESTED: "반품요청",
   CANCELED: "취소됨",
 };
 
@@ -30,6 +32,7 @@ const STATUS_COLOR: Record<string, string> = {
   PREPARING: "bg-indigo-50 text-indigo-700",
   SHIPPING: "bg-purple-50 text-purple-700",
   DELIVERED: "bg-green-50 text-green-700",
+  RETURN_REQUESTED: "bg-red-50 text-red-700",
   CANCELED: "bg-gray-100 text-gray-500",
 };
 
@@ -58,7 +61,8 @@ export default async function AdminOrdersPage({
     (sum, o) => sum + computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent),
     0
   );
-  const totalMargin = totalRevenue - totalCardFee;
+  const totalCost = liveOrders.reduce((sum, o) => sum + computeTotalCost(o.items), 0);
+  const totalMargin = totalRevenue - totalCardFee - totalCost;
 
   return (
     <div>
@@ -105,6 +109,10 @@ export default async function AdminOrdersPage({
           <p className="text-xs text-gray-400">카드수수료 합계 ({cardFeePercent}%)</p>
           <p className="text-base font-bold text-red-500">-{formatWon(totalCardFee)}</p>
         </div>
+        <div className="rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-xs text-gray-400">원가금액 합계</p>
+          <p className="text-base font-bold text-red-500">-{formatWon(totalCost)}</p>
+        </div>
         <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
           <p className="text-xs text-primary">마진금액 합계</p>
           <p className="text-base font-bold text-primary">{formatWon(totalMargin)}</p>
@@ -119,6 +127,7 @@ export default async function AdminOrdersPage({
             <th className="text-left px-4 py-2 font-medium">상품</th>
             <th className="text-left px-4 py-2 font-medium">금액</th>
             <th className="text-left px-4 py-2 font-medium">카드수수료</th>
+            <th className="text-left px-4 py-2 font-medium">원가</th>
             <th className="text-left px-4 py-2 font-medium">마진금액</th>
             <th className="text-left px-4 py-2 font-medium">상태</th>
             <th className="text-left px-4 py-2 font-medium">주문일시</th>
@@ -127,14 +136,15 @@ export default async function AdminOrdersPage({
         <tbody className="divide-y divide-gray-100">
           {orders.length === 0 && (
             <tr>
-              <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+              <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
                 주문이 없습니다.
               </td>
             </tr>
           )}
           {orders.map((o) => {
             const cardFee = computeCardFee(o.totalAmount, o.payment?.method, cardFeePercent);
-            const margin = o.totalAmount - cardFee;
+            const cost = computeTotalCost(o.items);
+            const margin = computeMarginAmount(o.totalAmount, o.payment?.method, cardFeePercent, cost);
             return (
             <tr key={o.id} className={o.status === "CANCELED" ? "opacity-50" : undefined}>
               <td className="px-4 py-2">
@@ -151,6 +161,7 @@ export default async function AdminOrdersPage({
               <td className="px-4 py-2 text-gray-500">
                 {cardFee > 0 ? `-${formatWon(cardFee)}` : "-"}
               </td>
+              <td className="px-4 py-2 text-gray-500">-{formatWon(cost)}</td>
               <td className="px-4 py-2 font-medium text-primary">{formatWon(margin)}</td>
               <td className="px-4 py-2">
                 <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[o.status]}`}>

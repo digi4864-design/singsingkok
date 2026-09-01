@@ -117,7 +117,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         </section>
       )}
 
-      <section className="mt-16 max-w-2xl">
+      <section id="review" className="mt-16 max-w-2xl scroll-mt-20">
         <h2 className="text-lg font-bold text-gray-900 mb-4">
           상품 리뷰{" "}
           {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}

@@ -13,6 +13,7 @@ enum OrderStatus {
   PREPARING
   SHIPPING
   DELIVERED
+  RETURN_REQUESTED
   CANCELED
 }
 
@@ -175,7 +176,26 @@ model User {
   orders        Order[]
   wishlist      Wishlist[]
   reviews       Review[]
+  addresses     Address[]
   createdAt     DateTime  @default(now())
+}
+
+// 마이페이지에서 관리하는 배송지록 - 체크아웃 시 여러 배송지 중 선택하거나 새 배송지를 저장할 수 있다.
+model Address {
+  id             String   @id @default(cuid())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  label          String? // 별칭 (예: "집", "회사")
+  recipientName  String
+  recipientPhone String
+  zipCode        String
+  address        String
+  addressDetail  String?
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Account {
@@ -228,6 +248,7 @@ model Order {
   address         String
   addressDetail   String?
   memo            String?
+  returnReason    String? // 고객이 반품 요청 시 입력한 사유
   items           OrderItem[]
   payment         Payment?
   shipment        Shipment?
@@ -244,6 +265,7 @@ model OrderItem {
   productName     String
   optionName      String
   unitPrice       Int
+  unitCost        Int      @default(0) // 주문 시점 공급가(원가) 스냅샷 - 마진 계산용
   quantity        Int
   lineTotal       Int
 }

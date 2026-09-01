@@ -16,10 +16,17 @@ export function computeCardFee(
   return Math.round((totalAmount * cardFeePercent) / 100);
 }
 
+// 주문에 포함된 상품들의 원가(공급가) 합계. items는 OrderItem의 unitCost/quantity.
+export function computeTotalCost(items: { unitCost: number; quantity: number }[]): number {
+  return items.reduce((sum, i) => sum + i.unitCost * i.quantity, 0);
+}
+
+// 마진금액 = 결제금액(할인 반영) - 카드수수료 - 원가금액.
 export function computeMarginAmount(
   totalAmount: number,
   method: string | null | undefined,
-  cardFeePercent: number
+  cardFeePercent: number,
+  totalCost: number
 ): number {
-  return totalAmount - computeCardFee(totalAmount, method, cardFeePercent);
+  return totalAmount - computeCardFee(totalAmount, method, cardFeePercent) - totalCost;
 }

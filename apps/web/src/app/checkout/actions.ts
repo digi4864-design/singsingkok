@@ -19,6 +19,7 @@ export interface CheckoutInput {
   memo?: string;
   paymentMethod: "CARD" | "BANK_TRANSFER";
   useCoupon?: boolean;
+  saveAddress?: boolean;
 }
 
 export interface CheckoutResult {
@@ -68,6 +69,7 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
       productName: productDisplayName,
       optionName: option.optionName,
       unitPrice: option.sellingPrice,
+      unitCost: option.price, // 원가(공급가) 스냅샷 - 이후 공급가가 바뀌어도 이 주문의 마진은 그대로 유지됨
       quantity: item.quantity,
       lineTotal: option.sellingPrice * item.quantity,
     });
@@ -113,6 +115,21 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
       },
     },
   });
+
+  if (input.saveAddress && session?.user) {
+    const existingCount = await prisma.address.count({ where: { userId: session.user.id } });
+    await prisma.address.create({
+      data: {
+        userId: session.user.id,
+        recipientName: input.recipientName,
+        recipientPhone: input.recipientPhone,
+        zipCode: input.zipCode,
+        address: input.address,
+        addressDetail: input.addressDetail,
+        isDefault: existingCount === 0,
+      },
+    });
+  }
 
   return { ok: true, orderId: order.id, orderNo: order.orderNo, totalAmount };
 }

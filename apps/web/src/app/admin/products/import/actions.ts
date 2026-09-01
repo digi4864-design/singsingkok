@@ -136,6 +136,12 @@ export async function importProductsAction(
         totalOptions++;
       })
     );
+
+    // 모든 옵션이 품절이면 자동으로 비공개 전환한다(재입고 시 공개 전환은 관리자가 직접 처리).
+    const allSoldOut = parsed.options.length > 0 && parsed.options.every((o) => !o.isAvailable);
+    if (allSoldOut && product.isActive) {
+      await prisma.product.update({ where: { id: product.id }, data: { isActive: false } });
+    }
   });
 
   await applyCategoryRules();

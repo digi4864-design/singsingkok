@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage() {
   const session = await auth();
-  const [setting, user] = await Promise.all([
+  const [setting, user, savedAddresses] = await Promise.all([
     prisma.storeSetting.findUnique({ where: { id: "default" } }),
     session?.user
       ? prisma.user.findUnique({
@@ -24,10 +24,36 @@ export default async function CheckoutPage() {
           },
         })
       : Promise.resolve(null),
+    session?.user
+      ? prisma.address.findMany({
+          where: { userId: session.user.id },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        })
+      : Promise.resolve([]),
   ]);
 
   const tierDiscountPercent = user ? getTierDiscountPercent(user.membershipTier) : 0;
   const couponEligible = Boolean(user?.hasWelcomeCoupon && !user?.welcomeCouponUsed);
+
+  // 저장된 배송지가 있으면 기본 배송지를, 없으면(과거 방식) 회원정보에 저장된 단일 주소를 사용한다.
+  const defaultFromBook = savedAddresses[0];
+  const defaultAddress = defaultFromBook
+    ? {
+        recipientName: defaultFromBook.recipientName,
+        recipientPhone: defaultFromBook.recipientPhone,
+        zipCode: defaultFromBook.zipCode,
+        address: defaultFromBook.address,
+        addressDetail: defaultFromBook.addressDetail ?? "",
+      }
+    : user
+      ? {
+          recipientName: user.name ?? "",
+          recipientPhone: user.phone ?? "",
+          zipCode: user.zipCode ?? "",
+          address: user.address ?? "",
+          addressDetail: user.addressDetail ?? "",
+        }
+      : null;
 
   return (
     <CheckoutClient
@@ -40,17 +66,17 @@ export default async function CheckoutPage() {
             }
           : null
       }
-      defaultAddress={
-        user
-          ? {
-              recipientName: user.name ?? "",
-              recipientPhone: user.phone ?? "",
-              zipCode: user.zipCode ?? "",
-              address: user.address ?? "",
-              addressDetail: user.addressDetail ?? "",
-            }
-          : null
-      }
+      defaultAddress={defaultAddress}
+      savedAddresses={savedAddresses.map((a) => ({
+        id: a.id,
+        label: a.label,
+        recipientName: a.recipientName,
+        recipientPhone: a.recipientPhone,
+        zipCode: a.zipCode,
+        address: a.address,
+        addressDetail: a.addressDetail ?? "",
+        isDefault: a.isDefault,
+      }))}
       userId={session?.user?.id ?? null}
       customerEmail={session?.user?.email ?? null}
       tierDiscountPercent={tierDiscountPercent}

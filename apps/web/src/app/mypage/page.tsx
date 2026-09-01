@@ -14,6 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
   PREPARING: "배송준비중",
   SHIPPING: "배송중",
   DELIVERED: "배송완료",
+  RETURN_REQUESTED: "반품요청",
   CANCELED: "취소됨",
 };
 
@@ -42,9 +43,14 @@ export default async function MyPage() {
           {session.user.name}
           {session.user.email ? ` (${session.user.email})` : ""}
         </p>
-        <Link href="/mypage/profile" className="text-sm text-primary hover:underline">
-          회원정보 수정
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/mypage/addresses" className="text-sm text-primary hover:underline">
+            배송지 관리
+          </Link>
+          <Link href="/mypage/profile" className="text-sm text-primary hover:underline">
+            회원정보 수정
+          </Link>
+        </div>
       </div>
 
       <div className="mb-8 rounded-xl border border-gray-200 p-4">

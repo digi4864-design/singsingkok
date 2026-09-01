@@ -24,11 +24,18 @@ export interface DefaultAddress {
   addressDetail: string;
 }
 
+export interface SavedAddress extends DefaultAddress {
+  id: string;
+  label: string | null;
+  isDefault: boolean;
+}
+
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? "";
 
 export function CheckoutClient({
   bankInfo,
   defaultAddress,
+  savedAddresses,
   userId,
   customerEmail,
   tierDiscountPercent,
@@ -36,6 +43,7 @@ export function CheckoutClient({
 }: {
   bankInfo: BankInfo | null;
   defaultAddress: DefaultAddress | null;
+  savedAddresses: SavedAddress[];
   userId: string | null;
   customerEmail: string | null;
   tierDiscountPercent: number;
@@ -51,6 +59,10 @@ export function CheckoutClient({
   );
   const [widgets, setWidgets] = useState<TossWidgetsInstance | null>(null);
   const [useCoupon, setUseCoupon] = useState(couponEligible);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(
+    savedAddresses[0]?.id ?? "new"
+  );
+  const [saveAddress, setSaveAddress] = useState(false);
 
   const couponPercent = useCoupon && couponEligible ? WELCOME_COUPON_PERCENT : 0;
   const discountPercent = tierDiscountPercent + couponPercent;
@@ -93,6 +105,7 @@ export function CheckoutClient({
       ...form,
       paymentMethod,
       useCoupon,
+      saveAddress: selectedAddressId === "new" && saveAddress,
     });
 
     if (!result.ok || !result.orderId || !result.orderNo) {
@@ -189,12 +202,67 @@ export function CheckoutClient({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">배송 정보</h2>
-        {defaultAddress?.address && (
-          <p className="text-xs text-gray-400 -mt-2">
-            저장된 기본 배송지가 자동으로 입력되었습니다. 다른 곳으로 보내시려면 아래에서
-            직접 수정해주세요.
-          </p>
+
+        {savedAddresses.length > 0 ? (
+          <div className="flex flex-wrap gap-2 -mt-2">
+            {savedAddresses.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => {
+                  setSelectedAddressId(a.id);
+                  setForm({
+                    recipientName: a.recipientName,
+                    recipientPhone: a.recipientPhone,
+                    zipCode: a.zipCode,
+                    address: a.address,
+                    addressDetail: a.addressDetail,
+                    memo: form.memo,
+                  });
+                  setSaveAddress(false);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs border ${
+                  selectedAddressId === a.id
+                    ? "bg-primary text-white border-primary"
+                    : "border-gray-300 text-gray-600 hover:border-primary"
+                }`}
+              >
+                {a.label ? `${a.label} · ` : ""}
+                {a.recipientName}
+                {a.isDefault ? " (기본)" : ""}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAddressId("new");
+                setForm({
+                  recipientName: "",
+                  recipientPhone: "",
+                  zipCode: "",
+                  address: "",
+                  addressDetail: "",
+                  memo: form.memo,
+                });
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs border ${
+                selectedAddressId === "new"
+                  ? "bg-primary text-white border-primary"
+                  : "border-gray-300 text-gray-600 hover:border-primary"
+              }`}
+            >
+              + 새 배송지 입력
+            </button>
+          </div>
+        ) : (
+          defaultAddress?.address && (
+            <p className="text-xs text-gray-400 -mt-2">
+              저장된 기본 배송지가 자동으로 입력되었습니다. 다른 곳으로 보내시려면 아래에서
+              직접 수정해주세요.
+            </p>
+          )
         )}
+
         <div>
           <label className="block text-xs text-gray-500 mb-1">받는 분 이름</label>
           <input
@@ -259,6 +327,17 @@ export function CheckoutClient({
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
         </div>
+
+        {userId && selectedAddressId === "new" && (
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={saveAddress}
+              onChange={(e) => setSaveAddress(e.target.checked)}
+            />
+            이 배송지를 내 정보에 저장할게요
+          </label>
+        )}
 
         <h2 className="text-sm font-semibold text-gray-700 pt-2">결제 수단</h2>
         {TOSS_CLIENT_KEY && (

@@ -4,6 +4,8 @@ import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 import { getCourierTrackingUrl } from "@/lib/courierTracking";
+import { auth } from "@/lib/auth";
+import { OrderActions } from "./OrderActions";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: "결제대기",
@@ -11,6 +13,7 @@ const STATUS_LABEL: Record<string, string> = {
   PREPARING: "배송준비중",
   SHIPPING: "배송중",
   DELIVERED: "배송완료",
+  RETURN_REQUESTED: "반품요청",
   CANCELED: "취소됨",
 };
 
@@ -24,12 +27,17 @@ const SHIPMENT_STATUS_LABEL: Record<string, string> = {
 export default async function OrderConfirmationPage(props: PageProps<"/orders/[id]">) {
   const { id } = await props.params;
 
-  const [order, setting] = await Promise.all([
+  const [order, setting, session] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
-      include: { items: true, shipment: true, payment: true },
+      include: {
+        items: { include: { productOption: { select: { productId: true } } } },
+        shipment: true,
+        payment: true,
+      },
     }),
     prisma.storeSetting.findUnique({ where: { id: "default" } }),
+    auth(),
   ]);
 
   if (!order) notFound();
@@ -37,6 +45,15 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
   const isBankTransferPending = order.status === "PENDING_PAYMENT" && !order.payment?.method;
   const isCardPaymentIncomplete = order.status === "PENDING_PAYMENT" && !!order.payment?.method;
   const trackingUrl = getCourierTrackingUrl(order.shipment?.courier, order.shipment?.trackingNumber);
+  const isOwner = Boolean(session?.user && session.user.id === order.customerId);
+
+  const reviewLinks = isOwner
+    ? Array.from(
+        new Map(
+          order.items.map((item) => [item.productOption.productId, item.productName])
+        ).entries()
+      ).map(([productId, productName]) => ({ productId, productName }))
+    : [];
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
@@ -132,6 +149,15 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
           ({order.zipCode}) {order.address} {order.addressDetail}
         </p>
       </section>
+
+      {isOwner && (
+        <OrderActions
+          orderId={order.id}
+          status={order.status}
+          returnReason={order.returnReason}
+          reviewLinks={reviewLinks}
+        />
+      )}
 
       <Link href="/" className="text-primary hover:underline text-sm">
         쇼핑 계속하기 →
