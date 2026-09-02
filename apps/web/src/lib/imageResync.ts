@@ -104,6 +104,7 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
     const data: {
       thumbnailUrl?: string;
       thumbnailImages?: string[];
+      thumbnailSourceKey?: string;
       images?: string[];
       categoryId?: string;
       isActive?: boolean;
@@ -124,6 +125,9 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
         if (saved.length > 0) {
           data.thumbnailImages = saved;
           data.thumbnailUrl = saved[0];
+          // 다른 상품이 같은 드라이브 폴더(예: "족발" 그룹 폴더를 여러 상품이 공유)에서
+          // 썸네일을 가져왔는지 나중에 점검할 수 있도록 출처를 기록해둔다.
+          data.thumbnailSourceKey = match.varietyFolder ? `drive:${match.varietyFolder}` : undefined;
           // 이미지를 못 찾아 비공개 처리됐던 상품이 이번에 썸네일을 확보하면 자동으로 공개 전환
           if (!product.isActive) data.isActive = true;
         }
@@ -154,9 +158,11 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
       try {
         const hit = await searchChoigozipProductImage(product.name);
         const uploaded = hit ? await uploadChoigozipImageToBlob(hit.imageUrl, product.id) : null;
-        if (uploaded) {
+        if (uploaded && hit) {
           data.thumbnailImages = [uploaded];
           data.thumbnailUrl = uploaded;
+          // 서로 다른 우리 상품명이 최고집의 같은 상품 검색결과로 매칭됐는지 점검할 수 있도록 기록.
+          data.thumbnailSourceKey = `choigozip:${hit.name}`;
           if (!product.isActive) data.isActive = true;
         }
       } catch (err) {

@@ -100,6 +100,10 @@ model Product {
   displayName      String?  // 쇼핑몰에 노출할 상품명(관리자가 수정 가능). 없으면 name을 그대로 노출
   thumbnailUrl     String? // thumbnailImages[0]과 항상 동일하게 유지(카드/장바구니 등 대표이미지로 쓰임)
   thumbnailImages  String[] // 상품 상세페이지 상단 갤러리 (최대 5장)
+  // 자동 동기화가 썸네일을 가져온 출처(구글드라이브 폴더명 또는 "choigozip:상품명").
+  // 서로 다른 상품이 같은 값을 가지면 같은 사진을 공유하고 있다는 뜻이라 관리자 화면에서
+  // 점검 목록으로 보여준다. 관리자가 수동으로 사진을 올리면 null로 비워 점검 대상에서 뺀다.
+  thumbnailSourceKey String?
   images           String[]
   description      String?  // 최고집 공개 API에서 매일 자동으로 가져오는 상품 상세설명(HTML)
   supplierNotice   String?  // 최고집 공급사 공지사항(시즌/품질 안내 등) - 매일 자동 갱신

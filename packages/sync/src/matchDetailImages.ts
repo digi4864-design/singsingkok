@@ -108,6 +108,19 @@ async function findSubfolder(parentId: string, name: string): Promise<DriveFile 
   return children.find((f) => isFolder(f) && f.name === name);
 }
 
+// 파일명에 이런 단어가 들어있으면 접시에 담긴 완성품 사진이 아니라 포장·발송 상태를 찍은
+// 사진일 가능성이 높다. 같은 폴더 안에 다른 사진이 섞여 있으면 그쪽을 먼저 쓰도록
+// 대표이미지(맨 앞) 후보에서 뒤로 미룬다 - 완전히 배제하지는 않는다(그것뿐일 수도 있으므로).
+const LIKELY_PACKAGING_SHOT = /전체\s*샷|발송|박스|포장|택배|배송컷/;
+
+function prioritizeThumbnailFiles(list: DriveFile[]): DriveFile[] {
+  return [...list].sort((a, b) => {
+    const aGeneric = LIKELY_PACKAGING_SHOT.test(a.name) ? 1 : 0;
+    const bGeneric = LIKELY_PACKAGING_SHOT.test(b.name) ? 1 : 0;
+    return aGeneric - bGeneric;
+  });
+}
+
 /**
  * 썸네일용 사진을 찾는다. 최우선은 "사진" 폴더. 없거나 비어 있으면 "상세페이지"를 제외한
  * 다른 하위 폴더(사이즈비교, 배송컷 등)를 순서대로 확인하고, 그래도 없으면 품종 폴더에
@@ -119,7 +132,7 @@ async function findThumbnailCandidates(varietyFolderId: string): Promise<DriveFi
   const photoFolder = children.find((f) => isFolder(f) && f.name === PHOTO_FOLDER_NAME);
   if (photoFolder) {
     const photoFiles = files(await getFolderChildren(photoFolder.id));
-    if (photoFiles.length > 0) return photoFiles;
+    if (photoFiles.length > 0) return prioritizeThumbnailFiles(photoFiles);
   }
 
   const otherFolders = children.filter(
@@ -127,11 +140,11 @@ async function findThumbnailCandidates(varietyFolderId: string): Promise<DriveFi
   );
   for (const folder of otherFolders) {
     const candidateFiles = files(await getFolderChildren(folder.id));
-    if (candidateFiles.length > 0) return candidateFiles;
+    if (candidateFiles.length > 0) return prioritizeThumbnailFiles(candidateFiles);
   }
 
   const looseFiles = files(children);
-  if (looseFiles.length > 0) return looseFiles;
+  if (looseFiles.length > 0) return prioritizeThumbnailFiles(looseFiles);
 
   return [];
 }

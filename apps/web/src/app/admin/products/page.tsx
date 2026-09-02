@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
@@ -13,7 +14,7 @@ export default async function AdminProductsPage({
 }) {
   const { q, category } = await searchParams;
 
-  const [categories, products] = await Promise.all([
+  const [categories, products, sharedThumbnailGroups] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.product.findMany({
       where: {
@@ -31,6 +32,7 @@ export default async function AdminProductsPage({
       orderBy: { updatedAt: "desc" },
       take: 200,
     }),
+    findSharedThumbnailGroups(),
   ]);
 
   return (
@@ -43,6 +45,39 @@ export default async function AdminProductsPage({
         카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를
         일괄 이동할 수도 있습니다.
       </p>
+
+      {sharedThumbnailGroups.length > 0 && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-800 mb-2">
+            ⚠ 서로 다른 상품 {sharedThumbnailGroups.reduce((sum, g) => sum + g.products.length, 0)}개가 자동으로
+            같은 사진을 사용하고 있어요 — 확인해주세요.
+          </p>
+          <div className="space-y-3">
+            {sharedThumbnailGroups.map((group) => (
+              <div key={group.key} className="flex flex-wrap items-center gap-2">
+                {group.products.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/admin/products/${p.id}`}
+                    className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg pl-1 pr-2 py-1 hover:border-amber-400"
+                  >
+                    {p.thumbnailUrl && (
+                      <Image
+                        src={p.thumbnailUrl}
+                        alt=""
+                        width={28}
+                        height={28}
+                        className="w-7 h-7 rounded object-cover"
+                      />
+                    )}
+                    <span className="text-xs text-gray-700">{p.displayName ?? p.name}</span>
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form className="flex gap-2 mb-4" action="/admin/products">
         <input
@@ -179,4 +214,28 @@ export default async function AdminProductsPage({
       </form>
     </div>
   );
+}
+
+// 자동 동기화가 같은 사진 출처(구글드라이브 폴더 또는 최고집 검색결과)에서 썸네일을
+// 가져온 서로 다른 상품이 있는지 찾는다. 관리자가 수동으로 사진을 올리면 해당 상품의
+// thumbnailSourceKey가 비워지므로, 한 번 확인해서 고치면 다시 여기 나타나지 않는다.
+async function findSharedThumbnailGroups() {
+  const grouped = await prisma.product.groupBy({
+    by: ["thumbnailSourceKey"],
+    where: { thumbnailSourceKey: { not: null }, isActive: true },
+    _count: { _all: true },
+  });
+  const sharedKeys = grouped.filter((g) => g._count._all > 1).map((g) => g.thumbnailSourceKey!);
+  if (sharedKeys.length === 0) return [];
+
+  const products = await prisma.product.findMany({
+    where: { thumbnailSourceKey: { in: sharedKeys }, isActive: true },
+    select: { id: true, name: true, displayName: true, thumbnailUrl: true, thumbnailSourceKey: true },
+    orderBy: { thumbnailSourceKey: "asc" },
+  });
+
+  return sharedKeys.map((key) => ({
+    key,
+    products: products.filter((p) => p.thumbnailSourceKey === key),
+  }));
 }

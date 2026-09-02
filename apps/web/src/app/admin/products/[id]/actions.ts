@@ -145,7 +145,9 @@ export async function uploadThumbnailAction(
     const thumbnailImages = [...product.thumbnailImages, ...newUrls];
     await prisma.product.update({
       where: { id: productId },
-      data: { thumbnailImages, thumbnailUrl: thumbnailImages[0] },
+      // 관리자가 직접 올렸으므로 "자동 동기화가 이 출처에서 가져왔다"는 표시를 지워
+      // 다른 상품과 사진을 공유하고 있다는 점검 목록에서 빠지도록 한다.
+      data: { thumbnailImages, thumbnailUrl: thumbnailImages[0], thumbnailSourceKey: null },
     });
 
     const skippedForLimit = uploadedFiles.length - filesToUpload.length;
