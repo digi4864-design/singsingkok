@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
+import { getCourierTrackingUrl } from "@/lib/courierTracking";
 import {
   confirmPaymentAction,
   saveShipmentAction,
@@ -142,7 +143,9 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
         </p>
 
         <ul className="space-y-3 mb-3">
-          {order.items.map((item) => (
+          {order.items.map((item) => {
+            const trackingUrl = getCourierTrackingUrl(item.shipment?.courier, item.shipment?.trackingNumber);
+            return (
             <li key={item.id} className="border border-gray-200 rounded-lg p-3">
               <p className="text-sm text-gray-800 mb-1">
                 {item.productName} <span className="text-gray-400">· {item.optionName}</span>
@@ -151,6 +154,16 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
                 <p className="text-sm text-gray-600 mb-2">
                   {item.shipment.courier} · {item.shipment.trackingNumber} (
                   {item.shipment.status === "DELIVERED" ? "배송완료" : "배송중"})
+                  {trackingUrl && (
+                    <a
+                      href={trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-primary hover:underline"
+                    >
+                      배송조회 →
+                    </a>
+                  )}
                 </p>
               ) : (
                 <p className="text-sm text-gray-400 mb-2">등록된 운송장이 없습니다.</p>
@@ -188,7 +201,8 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
                 </button>
               </form>
             </li>
-          ))}
+            );
+          })}
         </ul>
 
         <div className="flex gap-2">
