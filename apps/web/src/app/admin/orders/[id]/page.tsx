@@ -30,7 +30,11 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
   const [order, setting] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
-      include: { items: true, payment: true, shipment: true, customer: true },
+      include: {
+        items: { include: { shipment: true }, orderBy: { lineNo: "asc" } },
+        payment: true,
+        customer: true,
+      },
     }),
     prisma.storeSetting.findUnique({ where: { id: "default" } }),
   ]);
@@ -132,47 +136,60 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">배송</h2>
-        {order.shipment?.trackingNumber ? (
-          <p className="text-sm text-gray-600 mb-3">
-            {order.shipment.courier} · {order.shipment.trackingNumber} (
-            {order.shipment.status === "DELIVERED" ? "배송완료" : "배송중"})
-          </p>
-        ) : (
-          <p className="text-sm text-gray-400 mb-3">등록된 운송장이 없습니다.</p>
-        )}
+        <p className="text-xs text-gray-400 mb-3">
+          한 주문에 상품이 여러 개면 공급사가 상품별로 따로 출고해 운송장번호가 각각 다를 수
+          있어, 상품마다 운송장을 따로 등록합니다.
+        </p>
 
-        <form action={saveShipmentAction} className="flex items-end gap-2 mb-3">
-          <input type="hidden" name="orderId" value={order.id} />
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">택배사</label>
-            <select
-              name="courier"
-              defaultValue={order.shipment?.courier ?? ""}
-              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-            >
-              <option value="">선택</option>
-              {COURIER_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">운송장번호</label>
-            <input
-              name="trackingNumber"
-              defaultValue={order.shipment?.trackingNumber ?? ""}
-              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm w-48"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary/5"
-          >
-            운송장 등록
-          </button>
-        </form>
+        <ul className="space-y-3 mb-3">
+          {order.items.map((item) => (
+            <li key={item.id} className="border border-gray-200 rounded-lg p-3">
+              <p className="text-sm text-gray-800 mb-1">
+                {item.productName} <span className="text-gray-400">· {item.optionName}</span>
+              </p>
+              {item.shipment?.trackingNumber ? (
+                <p className="text-sm text-gray-600 mb-2">
+                  {item.shipment.courier} · {item.shipment.trackingNumber} (
+                  {item.shipment.status === "DELIVERED" ? "배송완료" : "배송중"})
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400 mb-2">등록된 운송장이 없습니다.</p>
+              )}
+              <form action={saveShipmentAction} className="flex items-end gap-2 flex-wrap">
+                <input type="hidden" name="orderItemId" value={item.id} />
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">택배사</label>
+                  <select
+                    name="courier"
+                    defaultValue={item.shipment?.courier ?? ""}
+                    className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
+                  >
+                    <option value="">선택</option>
+                    {COURIER_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">운송장번호</label>
+                  <input
+                    name="trackingNumber"
+                    defaultValue={item.shipment?.trackingNumber ?? ""}
+                    className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm w-48"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary/5"
+                >
+                  운송장 등록
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
 
         <div className="flex gap-2">
           <form action={markPreparingAction}>
@@ -181,11 +198,11 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
               배송준비중으로 변경
             </button>
           </form>
-          {order.shipment?.trackingNumber && order.shipment.status !== "DELIVERED" && (
+          {order.items.some((item) => item.shipment?.trackingNumber && item.shipment.status !== "DELIVERED") && (
             <form action={markDeliveredAction}>
               <input type="hidden" name="orderId" value={order.id} />
               <button type="submit" className="text-xs text-gray-500 hover:text-primary underline">
-                배송완료로 변경
+                전체 상품 배송완료로 변경
               </button>
             </form>
           )}

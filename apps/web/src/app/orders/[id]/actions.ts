@@ -27,7 +27,7 @@ export async function confirmDeliveryAction(formData: FormData) {
   await prisma.$transaction([
     prisma.order.update({ where: { id: orderId }, data: { status: "DELIVERED" } }),
     prisma.shipment.updateMany({
-      where: { orderId },
+      where: { orderItem: { orderId } },
       data: { status: "DELIVERED", deliveredAt: new Date() },
     }),
   ]);
@@ -77,7 +77,7 @@ export async function requestReturnAction(
     ...(wasShipping
       ? [
           prisma.shipment.updateMany({
-            where: { orderId },
+            where: { orderItem: { orderId } },
             data: { status: "DELIVERED" as const, deliveredAt: new Date() },
           }),
         ]

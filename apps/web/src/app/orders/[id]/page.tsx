@@ -31,8 +31,10 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
     prisma.order.findUnique({
       where: { id },
       include: {
-        items: { include: { productOption: { select: { productId: true } } } },
-        shipment: true,
+        items: {
+          include: { productOption: { select: { productId: true } }, shipment: true },
+          orderBy: { lineNo: "asc" },
+        },
         payment: true,
       },
     }),
@@ -44,7 +46,7 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
 
   const isBankTransferPending = order.status === "PENDING_PAYMENT" && !order.payment?.method;
   const isCardPaymentIncomplete = order.status === "PENDING_PAYMENT" && !!order.payment?.method;
-  const trackingUrl = getCourierTrackingUrl(order.shipment?.courier, order.shipment?.trackingNumber);
+  const shippedItems = order.items.filter((item) => item.shipment && item.shipment.status !== "READY");
   const isOwner = Boolean(session?.user && session.user.id === order.customerId);
 
   const reviewLinks = isOwner
@@ -116,27 +118,33 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
         </div>
       </div>
 
-      {order.shipment && order.shipment.status !== "READY" && (
-        <section className="mb-8 rounded-lg bg-green-50 text-green-800 text-sm px-3 py-3 space-y-1">
-          <h2 className="text-sm font-semibold mb-1">배송 정보</h2>
-          <p>
-            {SHIPMENT_STATUS_LABEL[order.shipment.status] ?? order.shipment.status}
-          </p>
-          {order.shipment.courier && order.shipment.trackingNumber && (
-            <p className="text-xs">
-              {order.shipment.courier} · 운송장번호 {order.shipment.trackingNumber}
-            </p>
-          )}
-          {trackingUrl && (
-            <a
-              href={trackingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-1 text-xs font-medium text-green-800 underline underline-offset-2 active:opacity-70"
-            >
-              배송조회하기 →
-            </a>
-          )}
+      {shippedItems.length > 0 && (
+        <section className="mb-8 rounded-lg bg-green-50 text-green-800 text-sm px-3 py-3 space-y-3">
+          <h2 className="text-sm font-semibold">배송 정보</h2>
+          {shippedItems.map((item) => {
+            const trackingUrl = getCourierTrackingUrl(item.shipment!.courier, item.shipment!.trackingNumber);
+            return (
+              <div key={item.id} className="space-y-0.5">
+                <p className="text-xs text-green-700">{item.productName}</p>
+                <p>{SHIPMENT_STATUS_LABEL[item.shipment!.status] ?? item.shipment!.status}</p>
+                {item.shipment!.courier && item.shipment!.trackingNumber && (
+                  <p className="text-xs">
+                    {item.shipment!.courier} · 운송장번호 {item.shipment!.trackingNumber}
+                  </p>
+                )}
+                {trackingUrl && (
+                  <a
+                    href={trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block text-xs font-medium text-green-800 underline underline-offset-2 active:opacity-70"
+                  >
+                    배송조회하기 →
+                  </a>
+                )}
+              </div>
+            );
+          })}
         </section>
       )}
 

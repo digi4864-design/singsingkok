@@ -300,12 +300,14 @@ model Order {
   returnReason    String? // 고객이 반품 요청 시 입력한 사유
   items           OrderItem[]
   payment         Payment?
-  shipment        Shipment?
   pointTransactions PointTransaction[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
 
+// 한 주문에 상품이 여러 개면 공급사가 상품별로 따로 출고해 운송장번호가 각각 다르게
+// 나온다(같은 사람이 시킨 주문이어도 택배가 여러 개로 나뉨). 그래서 배송(Shipment)은
+// 주문이 아니라 주문상품(OrderItem) 단위로 붙는다.
 model OrderItem {
   id              String        @id @default(cuid())
   order           Order         @relation(fields: [orderId], references: [id])
@@ -318,6 +320,8 @@ model OrderItem {
   unitCost        Int      @default(0) // 주문 시점 공급가(원가) 스냅샷 - 마진 계산용
   quantity        Int
   lineTotal       Int
+  lineNo          Int      @default(1) // 주문 내 순번(1부터). 발주 엑셀의 "거래처주문번호-N" 접미사와 매칭되는 값
+  shipment        Shipment?
 }
 
 model Payment {
@@ -336,8 +340,8 @@ model Payment {
 
 model Shipment {
   id                 String         @id @default(cuid())
-  order              Order          @relation(fields: [orderId], references: [id])
-  orderId            String         @unique
+  orderItem          OrderItem      @relation(fields: [orderItemId], references: [id])
+  orderItemId        String         @unique
   courier            String?
   trackingNumber     String?
   status             ShipmentStatus @default(READY)

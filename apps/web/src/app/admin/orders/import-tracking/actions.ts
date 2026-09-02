@@ -45,6 +45,7 @@ export async function importTrackingAction(
   // 배송 처리 대기 중인(결제완료) 주문만 매칭 대상으로 삼는다.
   const pendingOrders = await prisma.order.findMany({
     where: { status: { in: ["PAID", "PREPARING"] } },
+    include: { items: { orderBy: { lineNo: "asc" } } },
   });
   const byOrderNo = new Map(pendingOrders.map((o) => [o.orderNo.trim(), o]));
   const byPhone = new Map<string, typeof pendingOrders>();
@@ -58,16 +59,23 @@ export async function importTrackingAction(
   let registered = 0;
   let skipped = 0;
   const unmatched: { row: number; reason: string; trackingNumber: string }[] = [];
+  const shippedOrderIds = new Set<string>();
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     let order = r.orderNo ? byOrderNo.get(r.orderNo.trim()) : undefined;
+    // 거래처주문번호가 그대로 매칭되면 상품이 1개뿐인 주문이라는 뜻이라 1번 상품으로 본다.
+    let lineNo = 1;
 
     // 한 주문에 상품이 여러 개면 발주 엑셀의 거래처주문번호가 "ORD123-2"처럼 줄 번호가
-    // 붙어 내려오므로, 그대로는 못 찾으면 뒤의 "-숫자"를 떼고 다시 찾는다.
+    // 붙어 내려온다(한 사람이 시킨 주문이어도 상품마다 운송장번호가 다르기 때문). 그대로는
+    // 못 찾으면 뒤의 "-숫자"를 떼어 주문을 찾고, 그 숫자를 몇 번째 상품인지로 사용한다.
     if (!order && r.orderNo) {
-      const base = r.orderNo.trim().replace(/-\d+$/, "");
-      if (base !== r.orderNo.trim()) order = byOrderNo.get(base);
+      const match = r.orderNo.trim().match(/^(.+)-(\d+)$/);
+      if (match) {
+        order = byOrderNo.get(match[1]);
+        lineNo = Number(match[2]);
+      }
     }
 
     if (!order && r.recipientPhone) {
@@ -97,8 +105,22 @@ export async function importTrackingAction(
       continue;
     }
 
+    // 연락처로만 매칭했는데 상품이 여러 개면 어느 상품의 운송장인지 알 수 없으니 건너뛴다
+    // (거래처주문번호가 있는 엑셀을 받아 다시 시도하거나, 주문 상세페이지에서 직접 등록해야 함).
+    const item =
+      order.items.length === 1 ? order.items[0] : order.items.find((it) => it.lineNo === lineNo);
+    if (!item) {
+      unmatched.push({
+        row: i + 2,
+        reason: `주문(${order.orderNo})에서 ${lineNo}번째 상품을 찾지 못함 (상품이 ${order.items.length}개뿐이거나 연락처만으로는 어느 상품인지 알 수 없음)`,
+        trackingNumber: r.trackingNumber,
+      });
+      skipped++;
+      continue;
+    }
+
     await prisma.shipment.upsert({
-      where: { orderId: order.id },
+      where: { orderItemId: item.id },
       update: {
         courier: r.courier || undefined,
         trackingNumber: r.trackingNumber,
@@ -106,15 +128,24 @@ export async function importTrackingAction(
         invoiceRegisteredAt: new Date(),
       },
       create: {
-        orderId: order.id,
+        orderItemId: item.id,
         courier: r.courier || null,
         trackingNumber: r.trackingNumber,
         status: "REGISTERED",
         invoiceRegisteredAt: new Date(),
       },
     });
-    await prisma.order.update({ where: { id: order.id }, data: { status: "SHIPPING" } });
+    shippedOrderIds.add(order.id);
     registered++;
+  }
+
+  // 상품 중 하나라도 운송장이 등록되면 주문 상태를 배송중으로 바꾼다(나머지 상품은 나중에
+  // 등록돼도 상태는 그대로 배송중을 유지 - 전부 도착해야 고객이 직접 구매확정한다).
+  if (shippedOrderIds.size > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: [...shippedOrderIds] }, status: { in: ["PAID", "PREPARING"] } },
+      data: { status: "SHIPPING" },
+    });
   }
 
   revalidatePath("/admin/orders");

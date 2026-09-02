@@ -29,9 +29,11 @@ export async function confirmPaymentAction(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+// 주문상품(orderItem) 하나의 운송장을 등록한다. 한 주문에 상품이 여러 개면 공급사가
+// 상품별로 따로 출고해 운송장번호가 각각 다르므로, 주문 단위가 아니라 상품 단위로 등록한다.
 export async function saveShipmentAction(formData: FormData) {
   await requireAdmin();
-  const orderId = String(formData.get("orderId"));
+  const orderItemId = String(formData.get("orderItemId"));
   const courier = String(formData.get("courier") ?? "").trim();
   const trackingNumber = String(formData.get("trackingNumber") ?? "").trim();
 
@@ -39,20 +41,29 @@ export async function saveShipmentAction(formData: FormData) {
     throw new Error("택배사와 운송장번호를 입력해주세요.");
   }
 
+  const item = await prisma.orderItem.findUniqueOrThrow({
+    where: { id: orderItemId },
+    select: { orderId: true },
+  });
+
   await prisma.shipment.upsert({
-    where: { orderId },
+    where: { orderItemId },
     update: { courier, trackingNumber, status: "REGISTERED", invoiceRegisteredAt: new Date() },
     create: {
-      orderId,
+      orderItemId,
       courier,
       trackingNumber,
       status: "REGISTERED",
       invoiceRegisteredAt: new Date(),
     },
   });
-  await prisma.order.update({ where: { id: orderId }, data: { status: "SHIPPING" } });
+  // 상품 중 하나라도 운송장이 등록되면 배송중으로 바꾼다(전부 도착해야 고객이 구매확정한다).
+  await prisma.order.updateMany({
+    where: { id: item.orderId, status: { in: ["PAID", "PREPARING"] } },
+    data: { status: "SHIPPING" },
+  });
 
-  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/admin/orders/${item.orderId}`);
   revalidatePath("/admin/orders");
 }
 
@@ -79,12 +90,14 @@ export async function bulkMarkPreparingAction(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+// 상품마다 운송장이 따로 있을 수 있으므로, 주문 전체를 배송완료로 바꿀 때는 등록된
+// 모든 상품의 배송 상태를 한 번에 배송완료로 맞춘다.
 export async function markDeliveredAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
 
-  await prisma.shipment.update({
-    where: { orderId },
+  await prisma.shipment.updateMany({
+    where: { orderItem: { orderId } },
     data: { status: "DELIVERED", deliveredAt: new Date() },
   });
   await prisma.order.update({ where: { id: orderId }, data: { status: "DELIVERED" } });

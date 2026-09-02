@@ -8,14 +8,17 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     where: { status: "PAID" },
-    include: { items: { include: { productOption: true } }, customer: true },
+    include: {
+      items: { include: { productOption: true }, orderBy: { lineNo: "asc" } },
+      customer: true,
+    },
     orderBy: { createdAt: "asc" },
   });
 
   const rows = orders.flatMap((o) =>
-    o.items.map((item, index) => ({
+    o.items.map((item) => ({
       orderNo: o.orderNo,
-      lineNo: index + 1,
+      lineNo: item.lineNo,
       managementCode: item.productOption.sourceOptionId,
       productName: item.productName,
       optionName: item.optionName,

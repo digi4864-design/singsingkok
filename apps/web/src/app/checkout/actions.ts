@@ -76,6 +76,7 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
       unitCost: option.price, // 원가(공급가) 스냅샷 - 이후 공급가가 바뀌어도 이 주문의 마진은 그대로 유지됨
       quantity: item.quantity,
       lineTotal: option.sellingPrice * item.quantity,
+      lineNo: lineItems.length + 1, // 발주 엑셀의 "거래처주문번호-N" 및 송장 매칭에 쓰이는 순번
     });
   }
 

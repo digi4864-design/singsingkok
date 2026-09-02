@@ -34,7 +34,7 @@ export default async function MyPage() {
   const [orders, user, pointTransactions, headersList] = await Promise.all([
     prisma.order.findMany({
       where: { customerId: session.user.id },
-      include: { items: true, shipment: true },
+      include: { items: { include: { shipment: true }, orderBy: { lineNo: "asc" } } },
       orderBy: { createdAt: "desc" },
     }),
     prisma.user.findUniqueOrThrow({
@@ -149,11 +149,18 @@ export default async function MyPage() {
                 <div className="text-right">
                   <p className="font-medium text-gray-900">{formatWon(o.totalAmount)}</p>
                   <p className="text-xs text-gray-500">{STATUS_LABEL[o.status] ?? o.status}</p>
-                  {o.shipment?.trackingNumber && o.shipment.status !== "READY" && (
-                    <p className="text-[11px] text-gray-400">
-                      {o.shipment.courier} {o.shipment.trackingNumber}
-                    </p>
-                  )}
+                  {(() => {
+                    const shipped = o.items.filter(
+                      (item) => item.shipment?.trackingNumber && item.shipment.status !== "READY"
+                    );
+                    if (shipped.length === 0) return null;
+                    return (
+                      <p className="text-[11px] text-gray-400">
+                        {shipped[0].shipment!.courier} {shipped[0].shipment!.trackingNumber}
+                        {shipped.length > 1 ? ` 외 ${shipped.length - 1}건` : ""}
+                      </p>
+                    );
+                  })()}
                 </div>
               </Link>
             </li>
