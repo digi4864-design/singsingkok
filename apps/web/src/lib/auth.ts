@@ -5,7 +5,9 @@ import Kakao from "next-auth/providers/kakao";
 import Naver from "next-auth/providers/naver";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import { prisma } from "@farm-mall/db";
+import { awardReferralBonusIfApplicable, REFERRAL_COOKIE_NAME } from "@/lib/points";
 
 const providers: Provider[] = [
   Credentials({
@@ -63,6 +65,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async createUser({ user }) {
       if (user.id) {
         await prisma.user.update({ where: { id: user.id }, data: { hasWelcomeCoupon: true } });
+
+        const cookieStore = await cookies();
+        const ref = cookieStore.get(REFERRAL_COOKIE_NAME)?.value;
+        if (ref) {
+          await awardReferralBonusIfApplicable(user.id, ref);
+          cookieStore.delete(REFERRAL_COOKIE_NAME);
+        }
       }
     },
   },

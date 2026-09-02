@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { getNextTier } from "@/lib/membership";
 import { TierBadge } from "@/components/TierBadge";
+import { ReferralLinkBox } from "./ReferralLinkBox";
+
+const POINT_TX_LABEL: Record<string, string> = {
+  REFERRAL_BONUS: "친구 추천 적립",
+  REFERRED_SIGNUP_BONUS: "추천 가입 적립",
+  ORDER_REDEMPTION: "주문 결제 사용",
+  ORDER_REFUND: "주문 취소 환급",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +31,7 @@ export default async function MyPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/mypage");
 
-  const [orders, user] = await Promise.all([
+  const [orders, user, pointTransactions, headersList] = await Promise.all([
     prisma.order.findMany({
       where: { customerId: session.user.id },
       include: { items: true, shipment: true },
@@ -30,10 +39,19 @@ export default async function MyPage() {
     }),
     prisma.user.findUniqueOrThrow({
       where: { id: session.user.id },
-      select: { totalSpent: true, membershipTier: true },
+      select: { totalSpent: true, membershipTier: true, points: true },
     }),
+    prisma.pointTransaction.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    headers(),
   ]);
   const next = getNextTier(user.totalSpent);
+  const host = headersList.get("host") ?? "www.singsingkok.co.kr";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const referralUrl = `${protocol}://${host}/signup?ref=${session.user.id}`;
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
@@ -76,6 +94,40 @@ export default async function MyPage() {
           </>
         ) : (
           <p className="text-xs text-gray-400 mt-1.5">최고 등급이에요! 🎉</p>
+        )}
+      </div>
+
+      <div className="mb-8 rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-gray-700">💰 내 포인트</p>
+          <p className="text-lg font-bold text-primary">{formatWon(user.points)}P</p>
+        </div>
+
+        <p className="text-xs text-gray-500 mb-1.5">
+          친구를 초대하면 친구와 나 모두 1,000포인트를 받아요!
+        </p>
+        <ReferralLinkBox referralUrl={referralUrl} />
+
+        {pointTransactions.length > 0 && (
+          <details className="mt-3 text-xs">
+            <summary className="text-gray-500 cursor-pointer select-none">포인트 내역 보기</summary>
+            <ul className="mt-2 divide-y divide-gray-100">
+              {pointTransactions.map((t) => (
+                <li key={t.id} className="flex items-center justify-between py-1.5 text-gray-600">
+                  <span>
+                    {POINT_TX_LABEL[t.type] ?? t.type}
+                    <span className="text-gray-400 ml-1">
+                      {t.createdAt.toLocaleDateString("ko-KR")}
+                    </span>
+                  </span>
+                  <span className={t.amount >= 0 ? "text-primary" : "text-gray-500"}>
+                    {t.amount >= 0 ? "+" : ""}
+                    {formatWon(t.amount)}P
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
 

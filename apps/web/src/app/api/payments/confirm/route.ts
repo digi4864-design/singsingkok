@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@farm-mall/db";
 import { refreshMembershipTier, markWelcomeCouponUsedIfApplicable } from "@/lib/updateMembership";
+import { redeemPointsForOrder } from "@/lib/points";
 
 function failRedirect(req: NextRequest, message: string) {
   const url = new URL("/checkout/fail", req.url);
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest) {
 
   await refreshMembershipTier(order.customerId);
   await markWelcomeCouponUsedIfApplicable(order.customerId, order.couponApplied);
+  await redeemPointsForOrder(prisma, order);
 
   return NextResponse.redirect(new URL(`/orders/${order.id}`, req.url));
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
 import { ProductCard } from "@/components/ProductCard";
+import { getStorefrontName } from "@/lib/productDisplay";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function WishlistPage() {
                 key={p.id}
                 product={{
                   id: p.id,
-                  name: p.displayName ?? p.name,
+                  name: getStorefrontName(p),
                   minPrice: cheapest?.sellingPrice ?? null,
                   compareAtPrice: cheapest?.compliancePrice ?? null,
                   hasAvailableOption: availableOptions.length > 0,

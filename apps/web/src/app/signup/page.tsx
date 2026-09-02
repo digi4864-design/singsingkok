@@ -2,14 +2,24 @@ import { enabledSocialProviders } from "@/lib/auth";
 import { signInKakaoAction, signInNaverAction } from "@/app/login/actions";
 import { SignupForm } from "./SignupForm";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  const { ref } = await searchParams;
   const social = enabledSocialProviders();
   const hasSocial = social.kakao || social.naver;
 
   return (
     <main className="max-w-sm mx-auto px-4 py-14">
       <h1 className="text-xl font-bold text-gray-900 mb-6 text-center">회원가입</h1>
-      <SignupForm />
+      {ref && (
+        <p className="text-center text-xs text-primary bg-primary/10 rounded-lg py-2 mb-4">
+          친구의 초대로 가입하면 1,000포인트를 드려요!
+        </p>
+      )}
+      <SignupForm referrerId={ref} />
 
       {hasSocial && (
         <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
@@ -18,6 +28,7 @@ export default function SignupPage() {
           </p>
           {social.kakao && (
             <form action={signInKakaoAction}>
+              <input type="hidden" name="ref" value={ref ?? ""} />
               <button
                 type="submit"
                 className="w-full py-3 rounded-lg font-medium text-sm"
@@ -29,6 +40,7 @@ export default function SignupPage() {
           )}
           {social.naver && (
             <form action={signInNaverAction}>
+              <input type="hidden" name="ref" value={ref ?? ""} />
               <button
                 type="submit"
                 className="w-full py-3 rounded-lg font-medium text-sm text-white"

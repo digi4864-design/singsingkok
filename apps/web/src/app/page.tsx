@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
+import { PromoPopup } from "@/components/PromoPopup";
+import { getStorefrontName } from "@/lib/productDisplay";
 import { categoryIcon } from "@/lib/categoryIcons";
 import { sortCategoriesForStorefront } from "@/lib/categoryOrder";
 import { auth } from "@/lib/auth";
@@ -38,49 +40,52 @@ export default async function HomePage({
   // 홈 화면 기본(카테고리별 섹션) 뷰의 쿼리를 전부 한 번에 병렬로 날린다. 예전엔 카테고리
   // 목록을 먼저 받은 뒤 카테고리마다 별도 쿼리를 순차적으로 날려서, DB 리전과 거리가 있는
   // 배포 환경에서 왕복 지연이 여러 번 누적돼 페이지 이동이 눈에 띄게 느렸다.
-  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, allSectionProducts, setting] =
-    await Promise.all([
-      prisma.category.findMany({ orderBy: { name: "asc" } }),
-      // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
-      // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
-      isDefaultView
-        ? Promise.resolve([])
-        : prisma.product.findMany({
-            where,
-            include: { options: true },
-            orderBy: { updatedAt: "desc" },
-            skip: (page - 1) * PAGE_SIZE,
-            take: PAGE_SIZE,
-          }),
-      isDefaultView ? Promise.resolve(0) : prisma.product.count({ where }),
-      session?.user
-        ? prisma.wishlist.findMany({ where: { userId: session.user.id }, select: { productId: true } })
-        : Promise.resolve([]),
-      isDefaultView
-        ? prisma.product.findMany({
-            where: { isActive: true, isFeatured: true },
-            include: { options: true },
-            orderBy: { updatedAt: "desc" },
-            take: 8,
-          })
-        : Promise.resolve([]),
-      isDefaultView
-        ? prisma.product.findMany({
-            where: { isActive: true, categoryId: { not: null } },
-            include: { options: true },
-            orderBy: { updatedAt: "desc" },
-          })
-        : Promise.resolve([]),
-      prisma.storeSetting.findUnique({ where: { id: "default" } }),
-    ]);
+  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, setting] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
+    // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
+    isDefaultView
+      ? Promise.resolve([])
+      : prisma.product.findMany({
+          where,
+          include: { options: true },
+          orderBy: { updatedAt: "desc" },
+          skip: (page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+        }),
+    isDefaultView ? Promise.resolve(0) : prisma.product.count({ where }),
+    session?.user
+      ? prisma.wishlist.findMany({ where: { userId: session.user.id }, select: { productId: true } })
+      : Promise.resolve([]),
+    isDefaultView
+      ? prisma.product.findMany({
+          where: { isActive: true, isFeatured: true },
+          include: { options: true },
+          orderBy: { updatedAt: "desc" },
+          take: 8,
+        })
+      : Promise.resolve([]),
+    prisma.storeSetting.findUnique({ where: { id: "default" } }),
+  ]);
 
   const categories = sortCategoriesForStorefront(categoriesRaw);
 
+  // 카테고리별 섹션은 카테고리당 SECTION_SIZE개만 필요하므로, 전체 상품(옵션 포함)을 통째로
+  // 가져와 메모리에서 자르는 대신 카테고리마다 개수를 제한한 쿼리를 병렬로 날린다.
+  // (상품이 늘어날수록 무제한 조회가 급격히 느려져 실제로 홈 화면이 수십 초씩 걸리는
+  // 문제가 있었다.)
   const categorySections = isDefaultView
-    ? categories.map((c) => ({
-        category: c,
-        products: allSectionProducts.filter((p) => p.categoryId === c.id).slice(0, SECTION_SIZE),
-      }))
+    ? await Promise.all(
+        categories.map(async (c) => ({
+          category: c,
+          products: await prisma.product.findMany({
+            where: { isActive: true, categoryId: c.id },
+            include: { options: true },
+            orderBy: { updatedAt: "desc" },
+            take: SECTION_SIZE,
+          }),
+        }))
+      )
     : [];
 
   const wishlistedSet = new Set(wishlistedIds.map((w) => w.productId));
@@ -95,7 +100,7 @@ export default async function HomePage({
         : null;
     return {
       id: p.id,
-      name: p.displayName ?? p.name,
+      name: getStorefrontName(p),
       minPrice: cheapest?.sellingPrice ?? null,
       compareAtPrice: cheapest?.compliancePrice ?? null,
       hasAvailableOption: availableOptions.length > 0,
@@ -118,6 +123,7 @@ export default async function HomePage({
       {setting?.promoBannerEnabled && setting.promoBannerText && (
         <PromoBanner text={setting.promoBannerText} link={setting.promoBannerLink} />
       )}
+      {isDefaultView && <PromoPopup isLoggedIn={Boolean(session?.user)} />}
       <main className="max-w-6xl mx-auto px-4 py-8">
       <form action="/" className="mb-6 flex gap-2 max-w-md">
         {categorySlug && <input type="hidden" name="category" value={categorySlug} />}

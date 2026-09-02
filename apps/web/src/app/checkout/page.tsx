@@ -21,6 +21,7 @@ export default async function CheckoutPage() {
             membershipTier: true,
             hasWelcomeCoupon: true,
             welcomeCouponUsed: true,
+            points: true,
           },
         })
       : Promise.resolve(null),
@@ -81,6 +82,7 @@ export default async function CheckoutPage() {
       customerEmail={session?.user?.email ?? null}
       tierDiscountPercent={tierDiscountPercent}
       couponEligible={couponEligible}
+      availablePoints={user?.points ?? 0}
     />
   );
 }

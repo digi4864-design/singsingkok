@@ -6,6 +6,7 @@ import { OptionSelector } from "@/components/OptionSelector";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
 import { auth } from "@/lib/auth";
+import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
 
 export default async function ProductDetailPage(props: PageProps<"/products/[id]">) {
   const { id } = await props.params;
@@ -50,10 +51,12 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         ? [product.thumbnailUrl]
         : [];
   const hasAvailableOption = product.options.some((o) => o.isAvailable);
-  const displayName = product.displayName ?? product.name;
-  // 최고집에서 매일 자동으로 가져오는 값이라 "<p></p>" 같은 실질적으로 빈 HTML이 들어올 수
-  // 있어, 태그를 제거하고 실제 글자가 있는지 확인한 뒤에만 노출한다.
-  const hasMeaningfulDescription = Boolean(product.description?.replace(/<[^>]*>/g, "").trim());
+  const displayName = getStorefrontName(product);
+  // 최고집에서 매일 자동으로 가져오는 값이라 "<p></p>" 같은 실질적으로 빈 HTML이 들어올 수 있고,
+  // 판매자(우리)만 봐야 할 내부 CS 대응 안내문이 섞여 있을 수 있어 걸러낸 뒤 노출한다.
+  const sanitizedDescription = sanitizeDescriptionHtml(product.description);
+  const hasMeaningfulDescription = Boolean(sanitizedDescription.replace(/<[^>]*>/g, "").trim());
+  const sanitizedSupplierNotice = sanitizeSupplierNoticeText(product.supplierNotice);
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -88,9 +91,9 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           </p>
           <p className="text-xs text-gray-400 mb-6">배송기간: 결제 확인 후 2~3일 이내 발송</p>
 
-          {product.supplierNotice && (
+          {sanitizedSupplierNotice && (
             <div className="mb-6 rounded-lg bg-amber-50 text-amber-800 text-xs px-3 py-2.5 whitespace-pre-wrap leading-relaxed">
-              {product.supplierNotice}
+              {sanitizedSupplierNotice}
             </div>
           )}
 
@@ -113,7 +116,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           {hasMeaningfulDescription && (
             <div
               className="max-w-2xl mb-6 text-sm text-gray-700 leading-relaxed [&_p]:mb-3 [&_img]:max-w-full [&_img]:h-auto"
-              dangerouslySetInnerHTML={{ __html: product.description! }}
+              dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
             />
           )}
           <div className="flex flex-col">

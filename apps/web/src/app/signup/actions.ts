@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@farm-mall/db";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { awardReferralBonusIfApplicable } from "@/lib/points";
 
 export interface SignupState {
   ok: boolean;
@@ -33,9 +34,12 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: { email, passwordHash, name, phone: phone || null, hasWelcomeCoupon: true },
   });
+
+  const ref = String(formData.get("ref") ?? "").trim();
+  await awardReferralBonusIfApplicable(newUser.id, ref);
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });

@@ -45,6 +45,15 @@ enum MembershipTier {
   GOLD
 }
 
+// 포인트 적립/사용 내역. 지급 시점(가입/추천)과 사용 시점(결제확정)이 다르므로
+// User.points 잔액과 별개로 감사(audit) 목적의 원장을 남긴다.
+enum PointTransactionType {
+  REFERRAL_BONUS         // 내가 추천한 친구가 가입해서 받은 적립
+  REFERRED_SIGNUP_BONUS  // 추천을 받아 가입해서 받은 적립
+  ORDER_REDEMPTION       // 결제 시 포인트 사용(차감)
+  ORDER_REFUND           // 결제 확정 후 주문이 취소되어 사용한 포인트 환급
+}
+
 // 쇼핑몰 전역 설정(입금계좌 안내, 사업자정보 등). 항상 id="default" 단일 행만 사용한다.
 model StoreSetting {
   id                     String   @id @default("default")
@@ -176,6 +185,11 @@ model User {
   membershipTier MembershipTier @default(SPROUT)
   hasWelcomeCoupon   Boolean @default(false) // 신규가입 축하 7% 쿠폰 보유 여부 (가입 시 발급)
   welcomeCouponUsed  Boolean @default(false)
+  points        Int       @default(0) // 사용 가능한 포인트 잔액 (결제 시 1점=1원으로 사용 가능)
+  referredById  String?   // 나를 추천해서 가입시킨 회원 (가입 시 1회만 설정, 이후 변경 불가)
+  referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]    @relation("Referrals")
+  pointTransactions PointTransaction[]
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
@@ -183,6 +197,20 @@ model User {
   reviews       Review[]
   addresses     Address[]
   createdAt     DateTime  @default(now())
+}
+
+// 포인트 적립/사용 원장. User.points 잔액 변동이 있을 때마다 기록해서 내역 조회·감사에 사용한다.
+model PointTransaction {
+  id        String               @id @default(cuid())
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  amount    Int                  // 양수=적립, 음수=사용/차감
+  type      PointTransactionType
+  order     Order?               @relation(fields: [orderId], references: [id])
+  orderId   String?
+  createdAt DateTime             @default(now())
+
+  @@index([userId])
 }
 
 // 마이페이지에서 관리하는 배송지록 - 체크아웃 시 여러 배송지 중 선택하거나 새 배송지를 저장할 수 있다.
@@ -246,6 +274,7 @@ model Order {
   subtotal        Int         @default(0) // 할인 적용 전 상품 금액 합계
   discountAmount  Int         @default(0) // 등급 할인 + 쿠폰 할인 합계 (원)
   couponApplied   Boolean     @default(false) // 신규가입 축하 쿠폰 사용 여부
+  pointsUsed      Int         @default(0) // 결제 시 사용한 포인트(원). totalAmount에는 이미 차감 반영됨
   totalAmount     Int
   recipientName   String
   recipientPhone  String
@@ -257,6 +286,7 @@ model Order {
   items           OrderItem[]
   payment         Payment?
   shipment        Shipment?
+  pointTransactions PointTransaction[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }

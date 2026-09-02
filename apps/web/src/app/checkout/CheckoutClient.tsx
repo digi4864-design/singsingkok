@@ -8,7 +8,7 @@ import { formatWon } from "@/lib/format";
 import { AddressSearchButton } from "@/components/AddressSearchButton";
 import { TossPaymentWidget, type TossWidgetsInstance } from "@/components/TossPaymentWidget";
 import { createOrderAction } from "./actions";
-import { WELCOME_COUPON_PERCENT } from "@/lib/membership";
+import { WELCOME_COUPON_AMOUNT, WELCOME_COUPON_MIN_ORDER } from "@/lib/membership";
 
 export interface BankInfo {
   bankName: string | null;
@@ -40,6 +40,7 @@ export function CheckoutClient({
   customerEmail,
   tierDiscountPercent,
   couponEligible,
+  availablePoints,
 }: {
   bankInfo: BankInfo | null;
   defaultAddress: DefaultAddress | null;
@@ -48,6 +49,7 @@ export function CheckoutClient({
   customerEmail: string | null;
   tierDiscountPercent: number;
   couponEligible: boolean;
+  availablePoints: number;
 }) {
   const { items, totalPrice, clear } = useCart();
   const router = useRouter();
@@ -64,10 +66,15 @@ export function CheckoutClient({
   );
   const [saveAddress, setSaveAddress] = useState(false);
 
-  const couponPercent = useCoupon && couponEligible ? WELCOME_COUPON_PERCENT : 0;
-  const discountPercent = tierDiscountPercent + couponPercent;
-  const discountAmount = Math.round(((totalPrice * discountPercent) / 100 / 10)) * 10;
-  const finalTotal = totalPrice - discountAmount;
+  const couponMinOrderMet = totalPrice >= WELCOME_COUPON_MIN_ORDER;
+  const couponAmount = useCoupon && couponEligible && couponMinOrderMet ? WELCOME_COUPON_AMOUNT : 0;
+  const tierDiscountAmount = Math.round(((totalPrice * tierDiscountPercent) / 100 / 10)) * 10;
+  const discountAmount = tierDiscountAmount + couponAmount;
+  const amountAfterDiscount = totalPrice - discountAmount;
+  const maxUsablePoints = Math.max(0, Math.min(availablePoints, amountAfterDiscount));
+  const [pointsInput, setPointsInput] = useState(0);
+  const pointsUsed = Math.max(0, Math.min(pointsInput, maxUsablePoints));
+  const finalTotal = amountAfterDiscount - pointsUsed;
 
   const [form, setForm] = useState({
     recipientName: defaultAddress?.recipientName ?? "",
@@ -105,6 +112,7 @@ export function CheckoutClient({
       ...form,
       paymentMethod,
       useCoupon,
+      pointsUsed,
       saveAddress: selectedAddressId === "new" && saveAddress,
     });
 
@@ -169,17 +177,19 @@ export function CheckoutClient({
           {tierDiscountPercent > 0 && (
             <div className="flex justify-between text-primary">
               <span>등급 할인 ({tierDiscountPercent}%)</span>
-              <span>
-                -{formatWon(Math.round(((totalPrice * tierDiscountPercent) / 100 / 10)) * 10)}
-              </span>
+              <span>-{formatWon(tierDiscountAmount)}</span>
             </div>
           )}
-          {couponPercent > 0 && (
+          {couponAmount > 0 && (
             <div className="flex justify-between text-primary">
-              <span>신규가입 쿠폰 ({couponPercent}%)</span>
-              <span>
-                -{formatWon(Math.round(((totalPrice * couponPercent) / 100 / 10)) * 10)}
-              </span>
+              <span>첫구매 감사 쿠폰</span>
+              <span>-{formatWon(couponAmount)}</span>
+            </div>
+          )}
+          {pointsUsed > 0 && (
+            <div className="flex justify-between text-primary">
+              <span>포인트 사용</span>
+              <span>-{formatWon(pointsUsed)}</span>
             </div>
           )}
           <div className="flex justify-between text-base pt-1 border-t border-gray-100">
@@ -189,14 +199,57 @@ export function CheckoutClient({
         </div>
 
         {couponEligible && (
-          <label className="mt-3 flex items-center gap-2 text-sm bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 cursor-pointer">
+          <label
+            className={`mt-3 flex items-center gap-2 text-sm border rounded-lg px-3 py-2 ${
+              couponMinOrderMet
+                ? "bg-primary/5 border-primary/20 cursor-pointer"
+                : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
+          >
             <input
               type="checkbox"
-              checked={useCoupon}
+              checked={useCoupon && couponMinOrderMet}
+              disabled={!couponMinOrderMet}
               onChange={(e) => setUseCoupon(e.target.checked)}
             />
-            🎉 신규가입 축하 쿠폰 ({WELCOME_COUPON_PERCENT}% 할인) 사용하기
+            {couponMinOrderMet
+              ? `🎉 첫구매 감사 쿠폰 (${formatWon(WELCOME_COUPON_AMOUNT)} 할인) 사용하기`
+              : `🎉 첫구매 감사 쿠폰 (${formatWon(WELCOME_COUPON_AMOUNT)} 할인, ${formatWon(WELCOME_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)`}
           </label>
+        )}
+
+        {availablePoints > 0 && (
+          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+              <span>보유 포인트 {formatWon(availablePoints)}P</span>
+              <button
+                type="button"
+                onClick={() => setPointsInput(maxUsablePoints)}
+                className="text-primary hover:underline"
+              >
+                전액 사용
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={maxUsablePoints}
+                step={1}
+                value={pointsInput}
+                onChange={(e) => setPointsInput(Number(e.target.value) || 0)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="사용할 포인트"
+              />
+              <button
+                type="button"
+                onClick={() => setPointsInput(0)}
+                className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
+              >
+                초기화
+              </button>
+            </div>
+          </div>
         )}
       </section>
 

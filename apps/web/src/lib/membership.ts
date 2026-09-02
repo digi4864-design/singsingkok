@@ -17,7 +17,9 @@ export const TIERS: TierInfo[] = [
   { tier: "GOLD", label: "황금열매", emoji: "🏆", minAmount: 700_000, color: "yellow", discountPercent: 5 },
 ];
 
-export const WELCOME_COUPON_PERCENT = 5;
+// 첫구매 감사 쿠폰: 5,000원 정액 할인, 5만원 이상 주문 시에만 사용 가능(가입 시 1회 발급)
+export const WELCOME_COUPON_AMOUNT = 5000;
+export const WELCOME_COUPON_MIN_ORDER = 50_000;
 
 export function getTierDiscountPercent(tier: MembershipTier): number {
   return getTierInfo(tier).discountPercent;

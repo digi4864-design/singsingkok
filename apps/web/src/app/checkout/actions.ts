@@ -2,7 +2,8 @@
 
 import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
-import { getTierDiscountPercent, WELCOME_COUPON_PERCENT } from "@/lib/membership";
+import { getTierDiscountPercent, WELCOME_COUPON_AMOUNT, WELCOME_COUPON_MIN_ORDER } from "@/lib/membership";
+import { getStorefrontName } from "@/lib/productDisplay";
 
 export interface CheckoutItemInput {
   productOptionId: string;
@@ -19,6 +20,7 @@ export interface CheckoutInput {
   memo?: string;
   paymentMethod: "CARD" | "BANK_TRANSFER";
   useCoupon?: boolean;
+  pointsUsed?: number;
   saveAddress?: boolean;
 }
 
@@ -60,7 +62,7 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
   for (const item of input.items) {
     const option = optionMap.get(item.productOptionId);
     if (!option) return { ok: false, message: "존재하지 않는 상품 옵션이 포함되어 있습니다." };
-    const productDisplayName = option.product.displayName ?? option.product.name;
+    const productDisplayName = getStorefrontName(option.product);
     if (!option.isAvailable) {
       return { ok: false, message: `품절된 상품이 포함되어 있습니다: ${productDisplayName}` };
     }
@@ -78,20 +80,26 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
   const subtotal = lineItems.reduce((sum, i) => sum + i.lineTotal, 0);
   const session = await auth();
 
-  // 등급 할인 + 신규가입 쿠폰 할인은 반드시 서버에서 다시 확인한다(클라이언트가 보낸 값은
-  // 신뢰하지 않음). 로그인하지 않았거나 쿠폰을 이미 썼다면 적용되지 않는다.
+  // 등급 할인 + 신규가입 쿠폰 할인 + 포인트 사용은 반드시 서버에서 다시 확인한다(클라이언트가
+  // 보낸 값은 신뢰하지 않음). 로그인하지 않았거나 쿠폰을 이미 썼다면 적용되지 않는다.
   let tierDiscountPercent = 0;
   let couponApplied = false;
+  let pointsUsed = 0;
   if (session?.user) {
     const customer = await prisma.user.findUnique({ where: { id: session.user.id } });
     if (customer) {
       tierDiscountPercent = getTierDiscountPercent(customer.membershipTier);
-      couponApplied = Boolean(input.useCoupon && customer.hasWelcomeCoupon && !customer.welcomeCouponUsed);
+      const couponEligible =
+        customer.hasWelcomeCoupon && !customer.welcomeCouponUsed && subtotal >= WELCOME_COUPON_MIN_ORDER;
+      couponApplied = Boolean(input.useCoupon && couponEligible);
+      pointsUsed = Math.max(0, Math.min(Math.floor(input.pointsUsed ?? 0), customer.points));
     }
   }
-  const discountPercent = tierDiscountPercent + (couponApplied ? WELCOME_COUPON_PERCENT : 0);
-  const discountAmount = Math.round((subtotal * discountPercent) / 100 / 10) * 10;
-  const totalAmount = subtotal - discountAmount;
+  const tierDiscountAmount = Math.round((subtotal * tierDiscountPercent) / 100 / 10) * 10;
+  const discountAmount = tierDiscountAmount + (couponApplied ? WELCOME_COUPON_AMOUNT : 0);
+  // 포인트는 할인 적용 후 남은 금액을 넘어 사용할 수 없다(결제금액이 음수가 되지 않도록).
+  pointsUsed = Math.min(pointsUsed, subtotal - discountAmount);
+  const totalAmount = subtotal - discountAmount - pointsUsed;
 
   const order = await prisma.order.create({
     data: {
@@ -100,6 +108,7 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
       subtotal,
       discountAmount,
       couponApplied,
+      pointsUsed,
       totalAmount,
       recipientName: input.recipientName,
       recipientPhone: input.recipientPhone,

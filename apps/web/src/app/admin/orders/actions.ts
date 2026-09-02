@@ -4,10 +4,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { refreshMembershipTier, markWelcomeCouponUsedIfApplicable } from "@/lib/updateMembership";
+import { redeemPointsForOrder, refundPointsForOrder } from "@/lib/points";
 
 export async function confirmPaymentAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
+
+  const existing = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  if (existing?.status === "PAID") return; // 중복 클릭 등으로 포인트가 두 번 차감되지 않도록 방지
 
   const [, order] = await prisma.$transaction([
     prisma.payment.update({
@@ -19,6 +23,7 @@ export async function confirmPaymentAction(formData: FormData) {
 
   await refreshMembershipTier(order.customerId);
   await markWelcomeCouponUsedIfApplicable(order.customerId, order.couponApplied);
+  await redeemPointsForOrder(prisma, order);
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
@@ -91,9 +96,17 @@ export async function markDeliveredAction(formData: FormData) {
 export async function cancelOrderAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
+
+  const before = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  const wasPaid = before?.status !== "PENDING_PAYMENT" && before?.status !== "CANCELED";
+
   const order = await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } });
   // 취소된 주문은 누적 구매금액에서 빠져야 하므로 등급도 다시 계산한다.
   await refreshMembershipTier(order.customerId);
+  // 결제 확정(포인트 차감) 이후 취소된 주문이라면 사용했던 포인트를 되돌려준다.
+  if (wasPaid) {
+    await refundPointsForOrder(prisma, order);
+  }
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
 }

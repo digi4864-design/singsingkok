@@ -6,7 +6,7 @@ import { signupAction, type SignupState } from "./actions";
 
 const initialState: SignupState = { ok: true, message: "" };
 
-export function SignupForm() {
+export function SignupForm({ referrerId }: { referrerId?: string }) {
   const [state, formAction, isPending] = useActionState(signupAction, initialState);
   // 비밀번호를 잘못 입력해서 오류가 나도 이메일/이름/연락처는 다시 입력하지 않도록 보존한다.
   const [email, setEmail] = useState("");
@@ -15,6 +15,7 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="ref" value={referrerId ?? ""} />
       <div>
         <label className="block text-xs text-gray-500 mb-1">이메일</label>
         <input
