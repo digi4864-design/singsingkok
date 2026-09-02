@@ -196,7 +196,22 @@ model User {
   wishlist      Wishlist[]
   reviews       Review[]
   addresses     Address[]
+  pushSubscriptions PushSubscription[]
   createdAt     DateTime  @default(now())
+}
+
+// 관리자 기기의 웹 푸시 구독 정보. 신규가입/신규주문 발생 시 여기 등록된 기기로 알림을 보낸다.
+// 한 관리자가 여러 기기(폰/PC)에서 구독하면 기기마다 별도 행이 생긴다.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // 포인트 적립/사용 원장. User.points 잔액 변동이 있을 때마다 기록해서 내역 조회·감사에 사용한다.

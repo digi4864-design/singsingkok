@@ -45,9 +45,8 @@ export function PromoPopup({ isLoggedIn }: { isLoggedIn: boolean }) {
           <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
             <p className="text-sm font-semibold text-gray-800 mb-1">첫구매 감사 쿠폰</p>
             <p className="text-sm text-gray-600 leading-relaxed">
-              회원가입하면 <strong className="text-primary">{formatWon(WELCOME_COUPON_AMOUNT)}</strong>{" "}
-              쿠폰을 드려요. {formatWon(WELCOME_COUPON_MIN_ORDER)} 이상 구매 시 결제창에서 바로
-              사용할 수 있어요.
+              첫 구매 시 <strong className="text-primary">{formatWon(WELCOME_COUPON_AMOUNT)}</strong>{" "}
+              쿠폰을 드려요! ({formatWon(WELCOME_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)
             </p>
           </div>
 

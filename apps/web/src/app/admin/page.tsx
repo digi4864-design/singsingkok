@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
+import { PushSubscribeButton } from "@/components/PushSubscribeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,10 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">대시보드</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900">대시보드</h1>
+        <PushSubscribeButton />
+      </div>
 
       {(missingImageCount > 0 || missingOriginCount > 0) && (
         <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 space-y-1">

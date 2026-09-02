@@ -40,10 +40,10 @@ export const viewport: Viewport = {
 
 // 루트 레이아웃이 DB(StoreSetting)를 조회하므로, 빌드 시 정적 프리렌더링을 시도하지 않도록 강제한다.
 export const dynamic = "force-dynamic";
-// DB(Neon)가 싱가포르(ap-southeast-1) 리전이라, Vercel 함수도 같은 리전(sin1)에서 실행되도록
-// 고정한다. 기본값(미국 iad1)으로 실행되면 모든 쿼리가 태평양을 왕복해야 해서 페이지마다
-// 수 초씩 지연이 쌓였다.
-export const preferredRegion = "sin1";
+// 참고: DB(Neon)가 싱가포르(ap-southeast-1)인데 Vercel 함수는 기본값인 미국(iad1)에서 실행되고
+// 있어 모든 쿼리가 태평양을 왕복한다. Next.js 16에서는 `preferredRegion` route segment config가
+// 제거되어 코드로는 리전을 지정할 수 없고, Vercel Pro 플랜의 프로젝트 설정(Function Region)에서만
+// 바꿀 수 있다.
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const setting = await prisma.storeSetting.findUnique({ where: { id: "default" } });

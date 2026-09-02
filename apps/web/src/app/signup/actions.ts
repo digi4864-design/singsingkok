@@ -5,6 +5,7 @@ import { prisma } from "@farm-mall/db";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { awardReferralBonusIfApplicable } from "@/lib/points";
+import { notifyAdmins } from "@/lib/push";
 
 export interface SignupState {
   ok: boolean;
@@ -40,6 +41,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
 
   const ref = String(formData.get("ref") ?? "").trim();
   await awardReferralBonusIfApplicable(newUser.id, ref);
+  await notifyAdmins("새 회원가입", `${name}님이 가입했습니다.`, "/admin/customers");
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });

@@ -4,6 +4,8 @@ import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
 import { getTierDiscountPercent, WELCOME_COUPON_AMOUNT, WELCOME_COUPON_MIN_ORDER } from "@/lib/membership";
 import { getStorefrontName } from "@/lib/productDisplay";
+import { notifyAdmins } from "@/lib/push";
+import { formatWon } from "@/lib/format";
 
 export interface CheckoutItemInput {
   productOptionId: string;
@@ -124,6 +126,12 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
       },
     },
   });
+
+  await notifyAdmins(
+    "새 주문",
+    `${input.recipientName}님 · ${formatWon(totalAmount)} · ${lineItems[0].productName}${lineItems.length > 1 ? ` 외 ${lineItems.length - 1}건` : ""}`,
+    `/admin/orders/${order.id}`
+  );
 
   if (input.saveAddress && session?.user) {
     const existingCount = await prisma.address.count({ where: { userId: session.user.id } });

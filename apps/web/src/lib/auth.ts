@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@farm-mall/db";
 import { awardReferralBonusIfApplicable, REFERRAL_COOKIE_NAME } from "@/lib/points";
+import { notifyAdmins } from "@/lib/push";
 
 const providers: Provider[] = [
   Credentials({
@@ -72,6 +73,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await awardReferralBonusIfApplicable(user.id, ref);
           cookieStore.delete(REFERRAL_COOKIE_NAME);
         }
+
+        await notifyAdmins("새 회원가입", `${user.name ?? "신규 회원"}님이 가입했습니다.`, "/admin/customers");
       }
     },
   },
