@@ -46,6 +46,16 @@ export function ReviewForm({
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
         </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">사진 첨부 (선택, 최대 3장)</label>
+          <input
+            type="file"
+            name="images"
+            accept="image/*"
+            multiple
+            className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-gray-300 file:text-xs file:bg-white"
+          />
+        </div>
         {state.message && (
           <p className={`text-xs ${state.ok ? "text-primary" : "text-red-500"}`}>{state.message}</p>
         )}

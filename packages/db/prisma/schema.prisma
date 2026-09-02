@@ -52,6 +52,7 @@ enum PointTransactionType {
   REFERRED_SIGNUP_BONUS  // 추천을 받아 가입해서 받은 적립
   ORDER_REDEMPTION       // 결제 시 포인트 사용(차감)
   ORDER_REFUND           // 결제 확정 후 주문이 취소되어 사용한 포인트 환급
+  REVIEW_REWARD          // 리뷰 작성 보상
 }
 
 // 쇼핑몰 전역 설정(입금계좌 안내, 사업자정보 등). 항상 id="default" 단일 행만 사용한다.
@@ -124,6 +125,7 @@ model Product {
   options          ProductOption[]
   wishlistedBy     Wishlist[]
   reviews          Review[]
+  restockSubscribers RestockSubscription[]
   lastSyncedAt     DateTime @default(now())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -138,9 +140,23 @@ model Review {
   userId    String
   rating    Int      // 1~5
   content   String
+  images    String[] @default([]) // 리뷰 사진(최대 3장)
   isHidden  Boolean  @default(false) // 관리자 숨김 처리(부적절한 내용 등)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+// 품절 상품의 "재입고 알림 신청". 재입고(옵션이 다시 판매중으로 바뀜) 시 웹 푸시로 알린다.
+model RestockSubscription {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String
+  notifiedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@unique([userId, productId])
 }
@@ -197,6 +213,7 @@ model User {
   reviews       Review[]
   addresses     Address[]
   pushSubscriptions PushSubscription[]
+  restockSubscriptions RestockSubscription[]
   createdAt     DateTime  @default(now())
 }
 

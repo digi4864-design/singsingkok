@@ -7,6 +7,7 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
 import { auth } from "@/lib/auth";
 import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
+import { RestockSubscribeButton } from "@/components/RestockSubscribeButton";
 
 export default async function ProductDetailPage(props: PageProps<"/products/[id]">) {
   const { id } = await props.params;
@@ -19,9 +20,12 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
     auth(),
   ]);
 
-  if (!product || !product.isActive) notFound();
+  // 전체품절로 자동 비공개된 상품도 페이지 자체는 보여준다("품절되었습니다" + 재입고 알림
+  // 신청 없이 그냥 404로 사라지면 재입고 알림 기능을 쓸 방법이 없다). 옵션이 아예 없던
+  // 적 없는(등록 자체가 잘못된) 상품만 진짜 404로 처리한다.
+  if (!product || product.options.length === 0) notFound();
 
-  const [isWishlisted, reviews] = await Promise.all([
+  const [isWishlisted, reviews, isRestockSubscribed] = await Promise.all([
     session?.user
       ? prisma.wishlist
           .findUnique({
@@ -34,6 +38,13 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
       include: { user: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
+    session?.user
+      ? prisma.restockSubscription
+          .findUnique({
+            where: { userId_productId: { userId: session.user.id, productId: product.id } },
+          })
+          .then(Boolean)
+      : Promise.resolve(false),
   ]);
 
   const myReview = session?.user
@@ -107,6 +118,14 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
               isAvailable: o.isAvailable,
             }))}
           />
+
+          {!hasAvailableOption && (
+            <RestockSubscribeButton
+              productId={product.id}
+              isLoggedIn={Boolean(session?.user)}
+              initialSubscribed={isRestockSubscribed}
+            />
+          )}
         </div>
       </div>
 
@@ -172,6 +191,21 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
                   </span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
+                {r.images.length > 0 && (
+                  <div className="flex gap-2 mt-2">
+                    {r.images.map((src) => (
+                      <a key={src} href={src} target="_blank" rel="noopener noreferrer">
+                        <Image
+                          src={src}
+                          alt="리뷰 사진"
+                          width={80}
+                          height={80}
+                          className="w-20 h-20 rounded-lg object-cover border border-gray-200"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

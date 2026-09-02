@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
 import { PromoPopup } from "@/components/PromoPopup";
 import { getStorefrontName } from "@/lib/productDisplay";
+import { getReviewStatsMap } from "@/lib/reviewStats";
 import { categoryIcon } from "@/lib/categoryIcons";
 import { sortCategoriesForStorefront } from "@/lib/categoryOrder";
 import { auth } from "@/lib/auth";
@@ -40,7 +41,7 @@ export default async function HomePage({
   // 홈 화면 기본(카테고리별 섹션) 뷰의 쿼리를 전부 한 번에 병렬로 날린다. 예전엔 카테고리
   // 목록을 먼저 받은 뒤 카테고리마다 별도 쿼리를 순차적으로 날려서, DB 리전과 거리가 있는
   // 배포 환경에서 왕복 지연이 여러 번 누적돼 페이지 이동이 눈에 띄게 느렸다.
-  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, setting] = await Promise.all([
+  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, setting, reviewStats] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
     // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
@@ -66,6 +67,7 @@ export default async function HomePage({
         })
       : Promise.resolve([]),
     prisma.storeSetting.findUnique({ where: { id: "default" } }),
+    getReviewStatsMap(),
   ]);
 
   const categories = sortCategoriesForStorefront(categoriesRaw);
@@ -107,6 +109,8 @@ export default async function HomePage({
       hasAvailableOption: availableOptions.length > 0,
       thumbnailUrl: p.thumbnailUrl,
       isWishlisted: wishlistedSet.has(p.id),
+      avgRating: reviewStats.get(p.id)?.avgRating,
+      reviewCount: reviewStats.get(p.id)?.count,
     };
   }
 

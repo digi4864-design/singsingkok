@@ -1,6 +1,34 @@
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { PushSubscribeButton } from "@/components/PushSubscribeButton";
+import { SalesTrendChart, type DailySales } from "@/components/SalesTrendChart";
+import { formatWon } from "@/lib/format";
+
+// 매출 추이는 취소되지 않은(=실제 판매) 주문만 집계한다.
+const REVENUE_STATUSES = ["PAID", "PREPARING", "SHIPPING", "DELIVERED"] as const;
+const TREND_DAYS = 14;
+
+function buildDailySales(orders: { createdAt: Date; totalAmount: number }[]): DailySales[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const buckets = new Map<string, number>();
+  for (let i = TREND_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    buckets.set(d.toDateString(), 0);
+  }
+
+  for (const o of orders) {
+    const key = o.createdAt.toDateString();
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + o.totalAmount);
+  }
+
+  return [...buckets.entries()].map(([key, amount]) => {
+    const d = new Date(key);
+    return { date: `${d.getMonth() + 1}/${d.getDate()}`, amount };
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +71,16 @@ export default async function AdminDashboardPage() {
     prisma.review.count(),
   ]);
 
+  const trendStart = new Date();
+  trendStart.setHours(0, 0, 0, 0);
+  trendStart.setDate(trendStart.getDate() - (TREND_DAYS - 1));
+  const recentOrders = await prisma.order.findMany({
+    where: { status: { in: [...REVENUE_STATUSES] }, createdAt: { gte: trendStart } },
+    select: { createdAt: true, totalAmount: true },
+  });
+  const dailySales = buildDailySales(recentOrders);
+  const trendTotal = dailySales.reduce((sum, d) => sum + d.amount, 0);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -78,6 +116,14 @@ export default async function AdminDashboardPage() {
           )}
         </div>
       )}
+
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-gray-700">최근 {TREND_DAYS}일 매출 추이</h2>
+        <p className="text-sm font-bold text-primary">{formatWon(trendTotal)}</p>
+      </div>
+      <div className="border border-gray-200 rounded-xl p-4 mb-8">
+        <SalesTrendChart data={dailySales} />
+      </div>
 
       <h2 className="text-sm font-semibold text-gray-700 mb-2">주문 현황</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">

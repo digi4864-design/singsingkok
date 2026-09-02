@@ -41,6 +41,7 @@ export function CheckoutClient({
   tierDiscountPercent,
   couponEligible,
   availablePoints,
+  nextTier,
 }: {
   bankInfo: BankInfo | null;
   defaultAddress: DefaultAddress | null;
@@ -50,6 +51,7 @@ export function CheckoutClient({
   tierDiscountPercent: number;
   couponEligible: boolean;
   availablePoints: number;
+  nextTier: { label: string; emoji: string; discountPercent: number; remaining: number } | null;
 }) {
   const { items, totalPrice, clear } = useCart();
   const router = useRouter();
@@ -197,6 +199,14 @@ export function CheckoutClient({
             <span className="font-bold text-gray-900">{formatWon(finalTotal)}</span>
           </div>
         </div>
+
+        {nextTier && (
+          <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {nextTier.remaining - totalPrice <= 0
+              ? `🎉 이번 주문으로 ${nextTier.emoji} ${nextTier.label} 등급 달성! 다음부터 ${nextTier.discountPercent}% 할인이 적용돼요.`
+              : `${nextTier.emoji} ${formatWon(nextTier.remaining - totalPrice)}만 더 담으면 ${nextTier.label} 등급(${nextTier.discountPercent}% 할인)이 돼요.`}
+          </p>
+        )}
 
         {couponEligible && (
           <label

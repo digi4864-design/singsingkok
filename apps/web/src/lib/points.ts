@@ -51,3 +51,11 @@ export async function refundPointsForOrder(
   if (!order.customerId || order.pointsUsed <= 0) return;
   await creditPoints(db, order.customerId, order.pointsUsed, "ORDER_REFUND", order.id);
 }
+
+export const REVIEW_REWARD_POINTS = 500;
+
+// 리뷰를 처음 작성하면 지급하는 보상 포인트(수정 시에는 지급하지 않음 - 호출부에서 최초
+// 작성 여부를 확인한 뒤에만 호출한다).
+export async function creditReviewReward(userId: string, _productId: string) {
+  await creditPoints(prisma, userId, REVIEW_REWARD_POINTS, "REVIEW_REWARD");
+}

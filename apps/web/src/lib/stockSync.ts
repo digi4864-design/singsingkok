@@ -1,6 +1,7 @@
 import { prisma } from "@farm-mall/db";
 import { fetchChoigozipStockInfo } from "@farm-mall/sync";
 import { deactivateFullySoldOutProducts } from "./catalogMaintenance";
+import { notifyRestockSubscribers } from "./push";
 
 const CONCURRENCY = 5;
 
@@ -52,14 +53,30 @@ export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
       })
       .catch((err) => console.error(`상품 설명 갱신 실패 (${product.name}):`, err));
 
+    const hadAvailableBefore = product.options.some((o) => o.isAvailable);
+
     for (const option of product.options) {
       const nowAvailable = info.optionAvailability.get(option.optionName);
       // 최고집 쪽에 이름이 매칭되는 옵션이 없으면(단종·개명 등) 함부로 바꾸지 않는다.
       if (nowAvailable === undefined || nowAvailable === option.isAvailable) continue;
       await prisma.productOption
         .update({ where: { id: option.id }, data: { isAvailable: nowAvailable } })
-        .then(() => optionsUpdated++)
+        .then(() => {
+          optionsUpdated++;
+          if (nowAvailable) option.isAvailable = true; // 재입고 판정을 위해 로컬 상태도 갱신
+        })
         .catch((err) => console.error(`옵션 재고 갱신 실패 (${product.name} / ${option.optionName}):`, err));
+    }
+
+    // 품절 상태였다가 옵션 중 하나라도 다시 판매중이 되면 재입고 알림을 보낸다. 단, 상품이
+    // 이미 비공개(isActive=false, 전체품절로 자동 비공개된 상태)라면 고객이 페이지에 들어와도
+    // 아직 살 수 없으므로, 그 경우는 관리자가 수동으로 공개 전환할 때(toggleProductActiveAction)
+    // 알림을 보낸다.
+    const hasAvailableAfter = product.options.some((o) => o.isAvailable);
+    if (product.isActive && !hadAvailableBefore && hasAvailableAfter) {
+      await notifyRestockSubscribers(product.id, product.name).catch((err) =>
+        console.error(`재입고 알림 발송 실패 (${product.name}):`, err)
+      );
     }
   });
 

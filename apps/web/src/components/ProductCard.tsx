@@ -11,6 +11,8 @@ export interface ProductCardData {
   hasAvailableOption: boolean;
   thumbnailUrl: string | null;
   isWishlisted: boolean;
+  avgRating?: number;
+  reviewCount?: number;
 }
 
 export function ProductCard({ product }: { product: ProductCardData }) {
@@ -60,6 +62,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pt-8 pb-2.5">
         <p className="text-white text-sm font-medium line-clamp-2 drop-shadow">{product.name}</p>
+        {!!product.reviewCount && (
+          <p className="text-amber-300 text-xs font-medium mt-0.5">
+            ★ {product.avgRating!.toFixed(1)} <span className="text-gray-300">({product.reviewCount})</span>
+          </p>
+        )}
         <div className="mt-1 flex items-baseline gap-1.5">
           {hasDiscount && <span className="text-amber-400 text-sm font-bold">{discountPercent}%</span>}
           <span className="text-white font-bold">

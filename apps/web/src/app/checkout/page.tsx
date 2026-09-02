@@ -1,6 +1,6 @@
 import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
-import { getTierDiscountPercent } from "@/lib/membership";
+import { getTierDiscountPercent, getNextTier } from "@/lib/membership";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export default async function CheckoutPage() {
             hasWelcomeCoupon: true,
             welcomeCouponUsed: true,
             points: true,
+            totalSpent: true,
           },
         })
       : Promise.resolve(null),
@@ -35,6 +36,7 @@ export default async function CheckoutPage() {
 
   const tierDiscountPercent = user ? getTierDiscountPercent(user.membershipTier) : 0;
   const couponEligible = Boolean(user?.hasWelcomeCoupon && !user?.welcomeCouponUsed);
+  const nextTier = user ? getNextTier(user.totalSpent) : null;
 
   // 저장된 배송지가 있으면 기본 배송지를, 없으면(과거 방식) 회원정보에 저장된 단일 주소를 사용한다.
   const defaultFromBook = savedAddresses[0];
@@ -83,6 +85,11 @@ export default async function CheckoutPage() {
       tierDiscountPercent={tierDiscountPercent}
       couponEligible={couponEligible}
       availablePoints={user?.points ?? 0}
+      nextTier={
+        nextTier
+          ? { label: nextTier.info.label, emoji: nextTier.info.emoji, discountPercent: nextTier.info.discountPercent, remaining: nextTier.remaining }
+          : null
+      }
     />
   );
 }

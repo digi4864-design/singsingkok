@@ -3,6 +3,7 @@ import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
 import { ProductCard } from "@/components/ProductCard";
 import { getStorefrontName } from "@/lib/productDisplay";
+import { getReviewStatsMap } from "@/lib/reviewStats";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,14 @@ export default async function WishlistPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/wishlist");
 
-  const items = await prisma.wishlist.findMany({
-    where: { userId: session.user.id },
-    include: { product: { include: { options: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [items, reviewStats] = await Promise.all([
+    prisma.wishlist.findMany({
+      where: { userId: session.user.id },
+      include: { product: { include: { options: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    getReviewStatsMap(),
+  ]);
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
@@ -42,6 +46,8 @@ export default async function WishlistPage() {
                   hasAvailableOption: availableOptions.length > 0,
                   thumbnailUrl: p.thumbnailUrl,
                   isWishlisted: true,
+                  avgRating: reviewStats.get(p.id)?.avgRating,
+                  reviewCount: reviewStats.get(p.id)?.count,
                 }}
               />
             );
