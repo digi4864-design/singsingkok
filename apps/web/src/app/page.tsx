@@ -125,9 +125,12 @@ export default async function HomePage({
 
   return (
     <>
-      {setting?.promoBannerEnabled && setting.promoBannerText && (
-        <PromoBanner text={setting.promoBannerText} link={setting.promoBannerLink} />
-      )}
+      {setting?.promoBannerEnabled &&
+        setting.promoBannerText &&
+        // 신규가입 유도 배너는 이미 로그인한 회원에게는 의미가 없으니 숨긴다.
+        !(setting.promoBannerLink === "/signup" && session?.user) && (
+          <PromoBanner text={setting.promoBannerText} link={setting.promoBannerLink} />
+        )}
       {isDefaultView && <PromoPopup isLoggedIn={Boolean(session?.user)} />}
       <main className="max-w-6xl mx-auto px-4 py-8">
       <form action="/" className="mb-6 flex gap-2 max-w-md">
