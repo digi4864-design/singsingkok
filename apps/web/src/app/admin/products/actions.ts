@@ -45,3 +45,19 @@ export async function toggleProductFeaturedAction(productId: string, _formData: 
   revalidatePath("/admin/products");
   revalidatePath("/");
 }
+
+// "서로 다른 상품이 같은 사진을 쓰고 있어요" 경고 목록에서 선택한 상품을 제외한다.
+// thumbnailSourceKey를 비워서(관리자가 직접 사진을 업로드했을 때와 동일한 신호) 다시는
+// 이 경고에 뜨지 않게 한다 - 이미 확인했거나 직접 손봐둔 상품을 매번 다시 볼 필요가 없다.
+export async function dismissSharedThumbnailWarningAction(formData: FormData) {
+  await requireAdmin();
+  const productIds = formData.getAll("dismissProductIds").map(String).filter(Boolean);
+  if (productIds.length === 0) return;
+
+  await prisma.product.updateMany({
+    where: { id: { in: productIds } },
+    data: { thumbnailSourceKey: null },
+  });
+
+  revalidatePath("/admin/products");
+}

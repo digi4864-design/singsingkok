@@ -2,7 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
-import { toggleProductActiveAction, toggleProductFeaturedAction } from "./actions";
+import {
+  toggleProductActiveAction,
+  toggleProductFeaturedAction,
+  dismissSharedThumbnailWarningAction,
+} from "./actions";
 import { bulkMoveCategoryAction } from "../categories/actions";
 
 export const dynamic = "force-dynamic";
@@ -75,30 +79,47 @@ export default async function AdminProductsPage({
             ⚠ 서로 다른 상품 {sharedThumbnailGroups.reduce((sum, g) => sum + g.products.length, 0)}개가 자동으로
             같은 사진을 사용하고 있어요 — 확인해주세요.
           </p>
-          <div className="space-y-3">
-            {sharedThumbnailGroups.map((group) => (
-              <div key={group.key} className="flex flex-wrap items-center gap-2">
-                {group.products.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/admin/products/${p.id}`}
-                    className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg pl-1 pr-2 py-1 hover:border-amber-400"
-                  >
-                    {p.thumbnailUrl && (
-                      <Image
-                        src={p.thumbnailUrl}
-                        alt=""
-                        width={28}
-                        height={28}
-                        className="w-7 h-7 rounded object-cover"
-                      />
-                    )}
-                    <span className="text-xs text-gray-700">{p.displayName ?? p.name}</span>
-                  </Link>
-                ))}
-              </div>
-            ))}
-          </div>
+          <p className="text-xs text-amber-700 mb-2">
+            이미 확인했거나 직접 사진을 손봐둔 상품은 체크 후 아래 버튼으로 목록에서 빼주세요.
+          </p>
+          <form action={dismissSharedThumbnailWarningAction}>
+            <div className="space-y-3">
+              {sharedThumbnailGroups.map((group) => (
+                <div key={group.key} className="flex flex-wrap items-center gap-2">
+                  {group.products.map((p) => (
+                    <label
+                      key={p.id}
+                      className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg pl-1.5 pr-2 py-1 hover:border-amber-400 cursor-pointer"
+                    >
+                      <input type="checkbox" name="dismissProductIds" value={p.id} className="shrink-0" />
+                      {p.thumbnailUrl && (
+                        <Image
+                          src={p.thumbnailUrl}
+                          alt=""
+                          width={28}
+                          height={28}
+                          className="w-7 h-7 rounded object-cover"
+                        />
+                      )}
+                      <span className="text-xs text-gray-700">{p.displayName ?? p.name}</span>
+                      <Link
+                        href={`/admin/products/${p.id}`}
+                        className="text-[11px] text-amber-700 underline underline-offset-2 ml-0.5"
+                      >
+                        상품보기
+                      </Link>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <button
+              type="submit"
+              className="mt-3 px-3 py-1.5 text-xs rounded-lg border border-amber-400 text-amber-800 bg-white hover:bg-amber-100"
+            >
+              선택한 상품 목록에서 제외
+            </button>
+          </form>
         </div>
       )}
 
