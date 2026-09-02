@@ -40,6 +40,10 @@ export const viewport: Viewport = {
 
 // 루트 레이아웃이 DB(StoreSetting)를 조회하므로, 빌드 시 정적 프리렌더링을 시도하지 않도록 강제한다.
 export const dynamic = "force-dynamic";
+// DB(Neon)가 싱가포르(ap-southeast-1) 리전이라, Vercel 함수도 같은 리전(sin1)에서 실행되도록
+// 고정한다. 기본값(미국 iad1)으로 실행되면 모든 쿼리가 태평양을 왕복해야 해서 페이지마다
+// 수 초씩 지연이 쌓였다.
+export const preferredRegion = "sin1";
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const setting = await prisma.storeSetting.findUnique({ where: { id: "default" } });
