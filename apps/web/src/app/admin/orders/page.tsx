@@ -209,7 +209,6 @@ export default async function AdminOrdersPage({
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline"
-                              onClick={(e) => e.stopPropagation()}
                             >
                               배송조회 →
                             </a>
