@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatWon } from "@/lib/format";
-import { WELCOME_COUPON_AMOUNT, WELCOME_COUPON_MIN_ORDER } from "@/lib/membership";
+import {
+  WELCOME_COUPON_PERCENT,
+  FIRST_PURCHASE_COUPON_AMOUNT,
+  FIRST_PURCHASE_COUPON_MIN_ORDER,
+} from "@/lib/membership";
 import { REFERRAL_BONUS_POINTS } from "@/lib/points-constants";
 
 const DISMISS_KEY = "promoPopupDismissedAt";
@@ -43,10 +47,18 @@ export function PromoPopup({ isLoggedIn }: { isLoggedIn: boolean }) {
 
         <div className="space-y-3">
           <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
+            <p className="text-sm font-semibold text-gray-800 mb-1">신규가입 축하 쿠폰</p>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              회원가입하면 <strong className="text-primary">{WELCOME_COUPON_PERCENT}%</strong> 할인
+              쿠폰을 바로 드려요!
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
             <p className="text-sm font-semibold text-gray-800 mb-1">첫구매 감사 쿠폰</p>
             <p className="text-sm text-gray-600 leading-relaxed">
-              첫 구매 시 <strong className="text-primary">{formatWon(WELCOME_COUPON_AMOUNT)}</strong>{" "}
-              쿠폰을 드려요! ({formatWon(WELCOME_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)
+              첫 구매를 완료하면 <strong className="text-primary">{formatWon(FIRST_PURCHASE_COUPON_AMOUNT)}</strong>{" "}
+              쿠폰을 추가로 드려요! (다음 구매부터 {formatWon(FIRST_PURCHASE_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)
             </p>
           </div>
 

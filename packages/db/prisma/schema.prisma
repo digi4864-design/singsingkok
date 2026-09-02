@@ -199,8 +199,10 @@ model User {
   role          Role      @default(CUSTOMER)
   totalSpent    Int       @default(0) // 누적 구매금액 (취소된 주문 제외) - 결제 확정 시마다 갱신
   membershipTier MembershipTier @default(SPROUT)
-  hasWelcomeCoupon   Boolean @default(false) // 신규가입 축하 7% 쿠폰 보유 여부 (가입 시 발급)
+  hasWelcomeCoupon   Boolean @default(false) // 신규가입 축하 5% 할인 쿠폰 보유 여부 (가입 시 즉시 발급)
   welcomeCouponUsed  Boolean @default(false)
+  hasFirstPurchaseCoupon   Boolean @default(false) // 첫구매 완료 감사 5,000원 쿠폰 (첫 결제 확정 시 발급, 다음 구매부터 사용 가능)
+  firstPurchaseCouponUsed  Boolean @default(false)
   points        Int       @default(0) // 사용 가능한 포인트 잔액 (결제 시 1점=1원으로 사용 가능)
   referredById  String?   // 나를 추천해서 가입시킨 회원 (가입 시 1회만 설정, 이후 변경 불가)
   referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
@@ -305,7 +307,8 @@ model Order {
   status          OrderStatus @default(PENDING_PAYMENT)
   subtotal        Int         @default(0) // 할인 적용 전 상품 금액 합계
   discountAmount  Int         @default(0) // 등급 할인 + 쿠폰 할인 합계 (원)
-  couponApplied   Boolean     @default(false) // 신규가입 축하 쿠폰 사용 여부
+  couponApplied   Boolean     @default(false) // 신규가입 축하 5% 쿠폰 사용 여부
+  firstPurchaseCouponApplied Boolean @default(false) // 첫구매 감사 5,000원 쿠폰 사용 여부
   pointsUsed      Int         @default(0) // 결제 시 사용한 포인트(원). totalAmount에는 이미 차감 반영됨
   totalAmount     Int
   recipientName   String

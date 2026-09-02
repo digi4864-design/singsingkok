@@ -21,6 +21,8 @@ export default async function CheckoutPage() {
             membershipTier: true,
             hasWelcomeCoupon: true,
             welcomeCouponUsed: true,
+            hasFirstPurchaseCoupon: true,
+            firstPurchaseCouponUsed: true,
             points: true,
             totalSpent: true,
           },
@@ -36,6 +38,9 @@ export default async function CheckoutPage() {
 
   const tierDiscountPercent = user ? getTierDiscountPercent(user.membershipTier) : 0;
   const couponEligible = Boolean(user?.hasWelcomeCoupon && !user?.welcomeCouponUsed);
+  const firstPurchaseCouponEligible = Boolean(
+    user?.hasFirstPurchaseCoupon && !user?.firstPurchaseCouponUsed
+  );
   const nextTier = user ? getNextTier(user.totalSpent) : null;
 
   // 저장된 배송지가 있으면 기본 배송지를, 없으면(과거 방식) 회원정보에 저장된 단일 주소를 사용한다.
@@ -84,6 +89,7 @@ export default async function CheckoutPage() {
       customerEmail={session?.user?.email ?? null}
       tierDiscountPercent={tierDiscountPercent}
       couponEligible={couponEligible}
+      firstPurchaseCouponEligible={firstPurchaseCouponEligible}
       availablePoints={user?.points ?? 0}
       nextTier={
         nextTier

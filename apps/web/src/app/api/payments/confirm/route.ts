@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@farm-mall/db";
-import { refreshMembershipTier, markWelcomeCouponUsedIfApplicable } from "@/lib/updateMembership";
+import {
+  refreshMembershipTier,
+  markWelcomeCouponUsedIfApplicable,
+  grantFirstPurchaseCouponIfApplicable,
+  markFirstPurchaseCouponUsedIfApplicable,
+} from "@/lib/updateMembership";
 import { redeemPointsForOrder } from "@/lib/points";
 
 function failRedirect(req: NextRequest, message: string) {
@@ -73,6 +78,8 @@ export async function GET(req: NextRequest) {
 
   await refreshMembershipTier(order.customerId);
   await markWelcomeCouponUsedIfApplicable(order.customerId, order.couponApplied);
+  await markFirstPurchaseCouponUsedIfApplicable(order.customerId, order.firstPurchaseCouponApplied);
+  await grantFirstPurchaseCouponIfApplicable(order.customerId, order.id);
   await redeemPointsForOrder(prisma, order);
 
   return NextResponse.redirect(new URL(`/orders/${order.id}`, req.url));

@@ -31,3 +31,29 @@ export async function markWelcomeCouponUsedIfApplicable(
   if (!customerId || !couponApplied) return;
   await prisma.user.update({ where: { id: customerId }, data: { welcomeCouponUsed: true } });
 }
+
+// 결제 확정 시(무통장입금 수동확인 / 카드결제 승인) 이번이 이 고객의 "실제로 확정된" 첫
+// 주문이면, 다음 구매부터 쓸 수 있는 첫구매 감사 쿠폰(5,000원)을 지급한다. 회원가입 시가
+// 아니라 첫 결제가 실제로 확정된 시점에 지급해, 결제 안 하고 방치된 주문으로는 지급되지
+// 않는다.
+export async function grantFirstPurchaseCouponIfApplicable(
+  customerId: string | null | undefined,
+  currentOrderId: string
+) {
+  if (!customerId) return;
+
+  const priorConfirmedOrders = await prisma.order.count({
+    where: { customerId, status: { in: [...COUNTED_STATUSES] }, id: { not: currentOrderId } },
+  });
+  if (priorConfirmedOrders > 0) return; // 이미 이전에 결제 확정된 주문이 있음 = 첫구매가 아님
+
+  await prisma.user.update({ where: { id: customerId }, data: { hasFirstPurchaseCoupon: true } });
+}
+
+export async function markFirstPurchaseCouponUsedIfApplicable(
+  customerId: string | null | undefined,
+  applied: boolean
+) {
+  if (!customerId || !applied) return;
+  await prisma.user.update({ where: { id: customerId }, data: { firstPurchaseCouponUsed: true } });
+}

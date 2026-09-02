@@ -8,7 +8,11 @@ import { formatWon } from "@/lib/format";
 import { AddressSearchButton } from "@/components/AddressSearchButton";
 import { TossPaymentWidget, type TossWidgetsInstance } from "@/components/TossPaymentWidget";
 import { createOrderAction } from "./actions";
-import { WELCOME_COUPON_AMOUNT, WELCOME_COUPON_MIN_ORDER } from "@/lib/membership";
+import {
+  WELCOME_COUPON_PERCENT,
+  FIRST_PURCHASE_COUPON_AMOUNT,
+  FIRST_PURCHASE_COUPON_MIN_ORDER,
+} from "@/lib/membership";
 
 export interface BankInfo {
   bankName: string | null;
@@ -40,6 +44,7 @@ export function CheckoutClient({
   customerEmail,
   tierDiscountPercent,
   couponEligible,
+  firstPurchaseCouponEligible,
   availablePoints,
   nextTier,
 }: {
@@ -50,6 +55,7 @@ export function CheckoutClient({
   customerEmail: string | null;
   tierDiscountPercent: number;
   couponEligible: boolean;
+  firstPurchaseCouponEligible: boolean;
   availablePoints: number;
   nextTier: { label: string; emoji: string; discountPercent: number; remaining: number } | null;
 }) {
@@ -63,15 +69,22 @@ export function CheckoutClient({
   );
   const [widgets, setWidgets] = useState<TossWidgetsInstance | null>(null);
   const [useCoupon, setUseCoupon] = useState(couponEligible);
+  const [useFirstPurchaseCoupon, setUseFirstPurchaseCoupon] = useState(firstPurchaseCouponEligible);
   const [selectedAddressId, setSelectedAddressId] = useState<string>(
     savedAddresses[0]?.id ?? "new"
   );
   const [saveAddress, setSaveAddress] = useState(false);
 
-  const couponMinOrderMet = totalPrice >= WELCOME_COUPON_MIN_ORDER;
-  const couponAmount = useCoupon && couponEligible && couponMinOrderMet ? WELCOME_COUPON_AMOUNT : 0;
   const tierDiscountAmount = Math.round(((totalPrice * tierDiscountPercent) / 100 / 10)) * 10;
-  const discountAmount = tierDiscountAmount + couponAmount;
+  const couponAmount = useCoupon && couponEligible
+    ? Math.round(((totalPrice * WELCOME_COUPON_PERCENT) / 100 / 10)) * 10
+    : 0;
+  const firstPurchaseCouponMinOrderMet = totalPrice >= FIRST_PURCHASE_COUPON_MIN_ORDER;
+  const firstPurchaseCouponAmount =
+    useFirstPurchaseCoupon && firstPurchaseCouponEligible && firstPurchaseCouponMinOrderMet
+      ? FIRST_PURCHASE_COUPON_AMOUNT
+      : 0;
+  const discountAmount = tierDiscountAmount + couponAmount + firstPurchaseCouponAmount;
   const amountAfterDiscount = totalPrice - discountAmount;
   const maxUsablePoints = Math.max(0, Math.min(availablePoints, amountAfterDiscount));
   const [pointsInput, setPointsInput] = useState(0);
@@ -114,6 +127,7 @@ export function CheckoutClient({
       ...form,
       paymentMethod,
       useCoupon,
+      useFirstPurchaseCoupon,
       pointsUsed,
       saveAddress: selectedAddressId === "new" && saveAddress,
     });
@@ -184,8 +198,14 @@ export function CheckoutClient({
           )}
           {couponAmount > 0 && (
             <div className="flex justify-between text-primary">
-              <span>첫구매 감사 쿠폰</span>
+              <span>신규가입 쿠폰 ({WELCOME_COUPON_PERCENT}%)</span>
               <span>-{formatWon(couponAmount)}</span>
+            </div>
+          )}
+          {firstPurchaseCouponAmount > 0 && (
+            <div className="flex justify-between text-primary">
+              <span>첫구매 감사 쿠폰</span>
+              <span>-{formatWon(firstPurchaseCouponAmount)}</span>
             </div>
           )}
           {pointsUsed > 0 && (
@@ -209,22 +229,33 @@ export function CheckoutClient({
         )}
 
         {couponEligible && (
+          <label className="mt-3 flex items-center gap-2 text-sm bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useCoupon}
+              onChange={(e) => setUseCoupon(e.target.checked)}
+            />
+            🎉 신규가입 축하 쿠폰 ({WELCOME_COUPON_PERCENT}% 할인) 사용하기
+          </label>
+        )}
+
+        {firstPurchaseCouponEligible && (
           <label
             className={`mt-3 flex items-center gap-2 text-sm border rounded-lg px-3 py-2 ${
-              couponMinOrderMet
+              firstPurchaseCouponMinOrderMet
                 ? "bg-primary/5 border-primary/20 cursor-pointer"
                 : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
             }`}
           >
             <input
               type="checkbox"
-              checked={useCoupon && couponMinOrderMet}
-              disabled={!couponMinOrderMet}
-              onChange={(e) => setUseCoupon(e.target.checked)}
+              checked={useFirstPurchaseCoupon && firstPurchaseCouponMinOrderMet}
+              disabled={!firstPurchaseCouponMinOrderMet}
+              onChange={(e) => setUseFirstPurchaseCoupon(e.target.checked)}
             />
-            {couponMinOrderMet
-              ? `🎉 첫구매 감사 쿠폰 (${formatWon(WELCOME_COUPON_AMOUNT)} 할인) 사용하기`
-              : `🎉 첫구매 감사 쿠폰 (${formatWon(WELCOME_COUPON_AMOUNT)} 할인, ${formatWon(WELCOME_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)`}
+            {firstPurchaseCouponMinOrderMet
+              ? `🎁 첫구매 감사 쿠폰 (${formatWon(FIRST_PURCHASE_COUPON_AMOUNT)} 할인) 사용하기`
+              : `🎁 첫구매 감사 쿠폰 (${formatWon(FIRST_PURCHASE_COUPON_AMOUNT)} 할인, ${formatWon(FIRST_PURCHASE_COUPON_MIN_ORDER)} 이상 구매 시 사용 가능)`}
           </label>
         )}
 
