@@ -7,41 +7,62 @@ import { bulkMoveCategoryAction } from "../categories/actions";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }) {
-  const { q, category } = await searchParams;
+  const { q, category, page: pageRaw } = await searchParams;
+  const page = Math.max(1, Number(pageRaw) || 1);
 
-  const [categories, products, sharedThumbnailGroups] = await Promise.all([
+  const where = {
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { displayName: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+    ...(category ? { categoryId: category } : {}),
+  };
+
+  const [categories, products, totalCount, sharedThumbnailGroups] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.product.findMany({
-      where: {
-        ...(q
-          ? {
-              OR: [
-                { name: { contains: q, mode: "insensitive" as const } },
-                { displayName: { contains: q, mode: "insensitive" as const } },
-              ],
-            }
-          : {}),
-        ...(category ? { categoryId: category } : {}),
-      },
+      where,
       // 목록에서는 옵션별 최저가/개수만 필요해서, 옵션 전체(택배사/발주마감시간 등 10여개
-      // 필드)를 다 가져오지 않고 판매가만 select해 전송량을 줄인다.
+      // 필드)를 다 가져오지 않고 판매가만 select해 전송량을 줄인다. 200개를 한 번에 다
+      // 불러오면 느려서(옵션 포함 전송량이 큼) 페이지당 개수를 제한한다.
       include: { category: true, options: { select: { sellingPrice: true } } },
       orderBy: { updatedAt: "desc" },
-      take: 200,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
+    prisma.product.count({ where }),
     findSharedThumbnailGroups(),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  function pageHref(targetPage: number) {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (category) params.set("category", category);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const qs = params.toString();
+    return qs ? `/admin/products?${qs}` : "/admin/products";
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-bold text-gray-900">상품 관리</h1>
-        <p className="text-sm text-gray-400">{products.length}개 표시 중</p>
+        <p className="text-sm text-gray-400">
+          전체 {totalCount}개 중 {products.length}개 표시 중 ({page}/{totalPages}페이지)
+        </p>
       </div>
       <p className="text-sm text-gray-500 mb-4">
         카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를
@@ -214,6 +235,24 @@ export default async function AdminProductsPage({
           </tbody>
         </table>
       </form>
+
+      {totalPages > 1 && (
+        <nav className="flex flex-wrap gap-2 mt-4">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <Link
+              key={p}
+              href={pageHref(p)}
+              className={`px-3 py-1.5 rounded-lg text-sm border ${
+                p === page
+                  ? "bg-primary text-white border-primary"
+                  : "border-gray-300 text-gray-600 hover:border-primary"
+              }`}
+            >
+              {p}
+            </Link>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
