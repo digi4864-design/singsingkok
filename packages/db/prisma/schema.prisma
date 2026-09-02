@@ -101,7 +101,8 @@ model Product {
   thumbnailUrl     String? // thumbnailImages[0]과 항상 동일하게 유지(카드/장바구니 등 대표이미지로 쓰임)
   thumbnailImages  String[] // 상품 상세페이지 상단 갤러리 (최대 5장)
   images           String[]
-  description      String?
+  description      String?  // 최고집 공개 API에서 매일 자동으로 가져오는 상품 상세설명(HTML)
+  supplierNotice   String?  // 최고집 공급사 공지사항(시즌/품질 안내 등) - 매일 자동 갱신
   origin           String?  // 원산지 (농수산물의 원산지 표시에 관한 법률에 따라 표시 필요)
   isActive         Boolean  @default(true)
   isFeatured       Boolean  @default(false) // 관리자가 지정하는 "제철 베스트 상품" - 메인 화면 상단 노출

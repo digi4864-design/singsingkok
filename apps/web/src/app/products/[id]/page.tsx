@@ -51,6 +51,9 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         : [];
   const hasAvailableOption = product.options.some((o) => o.isAvailable);
   const displayName = product.displayName ?? product.name;
+  // 최고집에서 매일 자동으로 가져오는 값이라 "<p></p>" 같은 실질적으로 빈 HTML이 들어올 수
+  // 있어, 태그를 제거하고 실제 글자가 있는지 확인한 뒤에만 노출한다.
+  const hasMeaningfulDescription = Boolean(product.description?.replace(/<[^>]*>/g, "").trim());
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -85,6 +88,12 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           </p>
           <p className="text-xs text-gray-400 mb-6">배송기간: 결제 확인 후 2~3일 이내 발송</p>
 
+          {product.supplierNotice && (
+            <div className="mb-6 rounded-lg bg-amber-50 text-amber-800 text-xs px-3 py-2.5 whitespace-pre-wrap leading-relaxed">
+              {product.supplierNotice}
+            </div>
+          )}
+
           <OptionSelector
             product={{ id: product.id, name: displayName, thumbnailUrl: product.thumbnailUrl }}
             options={product.options.map((o) => ({
@@ -98,9 +107,15 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         </div>
       </div>
 
-      {detailImages.length > 0 && (
+      {(detailImages.length > 0 || hasMeaningfulDescription) && (
         <section className="mt-16">
           <h2 className="text-lg font-bold text-gray-900 mb-4">상세정보</h2>
+          {hasMeaningfulDescription && (
+            <div
+              className="max-w-2xl mb-6 text-sm text-gray-700 leading-relaxed [&_p]:mb-3 [&_img]:max-w-full [&_img]:h-auto"
+              dangerouslySetInnerHTML={{ __html: product.description! }}
+            />
+          )}
           <div className="flex flex-col">
             {detailImages.map((src, i) => (
               <div key={src} className="relative w-full">
