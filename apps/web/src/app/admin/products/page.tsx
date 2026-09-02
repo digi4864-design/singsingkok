@@ -28,7 +28,9 @@ export default async function AdminProductsPage({
           : {}),
         ...(category ? { categoryId: category } : {}),
       },
-      include: { category: true, options: true },
+      // 목록에서는 옵션별 최저가/개수만 필요해서, 옵션 전체(택배사/발주마감시간 등 10여개
+      // 필드)를 다 가져오지 않고 판매가만 select해 전송량을 줄인다.
+      include: { category: true, options: { select: { sellingPrice: true } } },
       orderBy: { updatedAt: "desc" },
       take: 200,
     }),
