@@ -42,9 +42,12 @@ export async function importTrackingAction(
     return { ok: false, message: "엑셀에서 운송장 데이터를 찾지 못했습니다." };
   }
 
-  // 배송 처리 대기 중인(결제완료) 주문만 매칭 대상으로 삼는다.
+  // 아직 운송장을 등록할 수 있는 주문을 매칭 대상으로 삼는다. 상품이 여러 개면 일부만 먼저
+  // 출고되어 주문이 이미 "배송중"으로 바뀐 뒤에 나머지 상품 운송장이 나중에 내려오는 경우가
+  // 흔하므로, SHIPPING 상태인 주문도 포함해야 한다(그렇지 않으면 이미 한 번 배송중으로
+  // 바뀐 주문은 나머지 상품 운송장을 영영 일괄 등록할 수 없게 된다).
   const pendingOrders = await prisma.order.findMany({
-    where: { status: { in: ["PAID", "PREPARING"] } },
+    where: { status: { in: ["PAID", "PREPARING", "SHIPPING"] } },
     include: { items: { orderBy: { lineNo: "asc" } } },
   });
   const byOrderNo = new Map(pendingOrders.map((o) => [o.orderNo.trim(), o]));
