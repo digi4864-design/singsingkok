@@ -1,30 +1,55 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { uploadDetailImagesAction, type UploadState } from "./actions";
 
 const initialState: UploadState = { ok: true, message: "" };
 
 export function DetailImagesUploadForm({ productId }: { productId: string }) {
   const [state, formAction, isPending] = useActionState(uploadDetailImagesAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.ok && state.message) formRef.current?.reset();
+  }, [state]);
 
   return (
-    <form action={formAction}>
+    <form ref={formRef} action={formAction} className="space-y-1.5">
       <input type="hidden" name="productId" value={productId} />
-      <div className="flex items-center gap-2">
-        <input type="file" name="files" accept="image/*" multiple required className="text-xs" />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-3 py-1.5 text-xs rounded-lg border border-primary text-primary hover:bg-primary/5 shrink-0 disabled:opacity-50"
-        >
-          {isPending ? "업로드 중..." : "상세이미지 추가"}
-        </button>
-      </div>
-      {state.message && (
-        <p className={`text-xs mt-1 ${state.ok ? "text-green-600" : "text-red-600"}`}>
-          {state.message}
-        </p>
+      <label className="flex items-center gap-2 text-xs text-gray-500">
+        파일 선택
+        <input
+          type="file"
+          name="files"
+          accept="image/*"
+          multiple
+          className="text-xs"
+          onChange={(e) => {
+            if (e.currentTarget.files?.length) formRef.current?.requestSubmit();
+          }}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-xs text-gray-500">
+        폴더 선택
+        <input
+          type="file"
+          name="files"
+          multiple
+          // PC 폴더를 통째로 선택하면 안의 이미지 파일이 한 번에 업로드된다(표준 file input
+          // 타입에는 없지만 크로미움/사파리 계열 브라우저가 공통으로 지원하는 속성).
+          {...{ webkitdirectory: "", directory: "" }}
+          className="text-xs"
+          onChange={(e) => {
+            if (e.currentTarget.files?.length) formRef.current?.requestSubmit();
+          }}
+        />
+      </label>
+      <p className="text-[11px] text-gray-400">
+        폴더를 선택하면 그 안의 이미지가 상세페이지 순서(파일명 순)대로 자동 업로드됩니다.
+      </p>
+      {isPending && <p className="text-xs text-primary">업로드 중...</p>}
+      {!isPending && state.message && (
+        <p className={`text-xs ${state.ok ? "text-green-600" : "text-red-600"}`}>{state.message}</p>
       )}
     </form>
   );

@@ -12,17 +12,13 @@ const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (업로드 후 압축되므로 �
 const THUMB_MAX_WIDTH = 1200;
 const DETAIL_MAX_WIDTH = 1600;
 
+// 폴더째로 선택하면 사진 외의 파일(썸네일 캐시, 설명 텍스트 등)이 섞여 들어오기 쉬우므로
+// 이미지가 아니거나 너무 큰 파일은 전체를 중단시키지 않고 건너뛴다.
+function isUploadableImage(file: File): boolean {
+  return ALLOWED_IMAGE_TYPES.has(file.type) && file.size <= MAX_FILE_SIZE;
+}
+
 async function saveUploadedFile(productId: string, file: File, prefix: string): Promise<string> {
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    throw new Error(
-      `이미지 파일(jpg, png, webp, gif)만 업로드할 수 있습니다. (선택한 파일 형식: ${file.type || "알 수 없음"})`
-    );
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error(
-      `파일 용량이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 25MB 이하 파일을 사용해주세요.`
-    );
-  }
   const raw = Buffer.from(await file.arrayBuffer());
   const maxWidth = prefix.includes("thumb") ? THUMB_MAX_WIDTH : DETAIL_MAX_WIDTH;
   const { buffer, ext, contentType } = await compressImage(raw, maxWidth);
@@ -120,9 +116,17 @@ export async function uploadThumbnailAction(
 ): Promise<UploadState> {
   await requireAdmin();
   const productId = String(formData.get("productId"));
-  const uploadedFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  const rawFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  const uploadedFiles = rawFiles.filter(isUploadableImage);
+  const invalidCount = rawFiles.length - uploadedFiles.length;
   if (uploadedFiles.length === 0) {
-    return { ok: false, message: "업로드할 이미지를 선택해주세요." };
+    return {
+      ok: false,
+      message:
+        invalidCount > 0
+          ? "선택한 항목에 이미지 파일이 없습니다. jpg/png/webp/gif, 25MB 이하 파일만 업로드할 수 있습니다."
+          : "업로드할 이미지를 선택해주세요.",
+    };
   }
 
   try {
@@ -144,16 +148,17 @@ export async function uploadThumbnailAction(
       data: { thumbnailImages, thumbnailUrl: thumbnailImages[0] },
     });
 
-    const skipped = uploadedFiles.length - filesToUpload.length;
+    const skippedForLimit = uploadedFiles.length - filesToUpload.length;
+    const notes: string[] = [];
+    if (skippedForLimit > 0) notes.push(`최대 ${MAX_THUMBNAILS}장 제한으로 ${skippedForLimit}장 건너뜀`);
+    if (invalidCount > 0) notes.push(`이미지가 아닌 파일 ${invalidCount}개 건너뜀`);
+
     revalidatePath(`/admin/products/${productId}`);
     revalidatePath("/admin/products");
     revalidatePath("/");
     return {
       ok: true,
-      message:
-        skipped > 0
-          ? `${filesToUpload.length}장 업로드됨. 최대 ${MAX_THUMBNAILS}장 제한으로 ${skipped}장은 건너뛰었습니다.`
-          : `${filesToUpload.length}장 업로드되었습니다.`,
+      message: `${filesToUpload.length}장 업로드되었습니다.${notes.length > 0 ? ` (${notes.join(", ")})` : ""}`,
     };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
@@ -183,9 +188,17 @@ export async function uploadDetailImagesAction(
 ): Promise<UploadState> {
   await requireAdmin();
   const productId = String(formData.get("productId"));
-  const uploadedFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  const rawFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  const uploadedFiles = rawFiles.filter(isUploadableImage);
+  const invalidCount = rawFiles.length - uploadedFiles.length;
   if (uploadedFiles.length === 0) {
-    return { ok: false, message: "업로드할 이미지를 선택해주세요." };
+    return {
+      ok: false,
+      message:
+        invalidCount > 0
+          ? "선택한 항목에 이미지 파일이 없습니다. jpg/png/webp/gif, 25MB 이하 파일만 업로드할 수 있습니다."
+          : "업로드할 이미지를 선택해주세요.",
+    };
   }
 
   try {
@@ -206,7 +219,10 @@ export async function uploadDetailImagesAction(
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/admin/products");
   revalidatePath("/");
-  return { ok: true, message: `${uploadedFiles.length}개 이미지가 추가되었습니다.` };
+  return {
+    ok: true,
+    message: `${uploadedFiles.length}개 이미지가 추가되었습니다.${invalidCount > 0 ? ` (이미지가 아닌 파일 ${invalidCount}개 건너뜀)` : ""}`,
+  };
 }
 
 export async function removeDetailImageAction(formData: FormData) {
