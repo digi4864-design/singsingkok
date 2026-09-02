@@ -73,7 +73,8 @@ export default async function HomePage({
   // 카테고리별 섹션은 카테고리당 SECTION_SIZE개만 필요하므로, 전체 상품(옵션 포함)을 통째로
   // 가져와 메모리에서 자르는 대신 카테고리마다 개수를 제한한 쿼리를 병렬로 날린다.
   // (상품이 늘어날수록 무제한 조회가 급격히 느려져 실제로 홈 화면이 수십 초씩 걸리는
-  // 문제가 있었다.)
+  // 문제가 있었다. id IN (...) 목록으로 한 번에 묶어 가져오는 방식도 시도해봤는데, 이
+  // 데이터에서는 오히려 더 느려서 카테고리별 병렬 쿼리 방식을 유지한다.)
   const categorySections = isDefaultView
     ? await Promise.all(
         categories.map(async (c) => ({
