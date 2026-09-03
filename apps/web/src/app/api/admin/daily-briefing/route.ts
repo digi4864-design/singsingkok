@@ -6,9 +6,15 @@ export const dynamic = "force-dynamic";
 
 // 마케팅팀·CS팀 예약 에이전트가 매일 아침 확인하는 요약 데이터.
 // Vercel Cron과 동일한 방식으로 BRIEFING_SECRET 없이는 호출할 수 없게 막는다.
+// 클라우드 예약 에이전트의 샌드박스가 임의 아웃바운드 요청(curl 등)을 조직 정책으로 막아서,
+// Authorization 헤더를 못 붙이는 도구(WebFetch 등)를 위해 쿼리스트링 인증도 함께 지원한다.
 export async function GET(request: Request) {
+  const url = new URL(request.url);
   const authHeader = request.headers.get("authorization");
-  if (!process.env.BRIEFING_SECRET || authHeader !== `Bearer ${process.env.BRIEFING_SECRET}`) {
+  const tokenParam = url.searchParams.get("token");
+  const secret = process.env.BRIEFING_SECRET;
+  const authorized = Boolean(secret) && (authHeader === `Bearer ${secret}` || tokenParam === secret);
+  if (!authorized) {
     return NextResponse.json({ error: "인증되지 않은 요청입니다." }, { status: 401 });
   }
 
