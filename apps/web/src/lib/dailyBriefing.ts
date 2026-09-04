@@ -7,8 +7,9 @@ import { getStorefrontName } from "@/lib/productDisplay";
 export async function getDailyBriefingData() {
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const since3d = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
-  const [newProducts, featuredProducts, setting, lowRatedReviews, returnRequests] = await Promise.all([
+  const [newProducts, featuredProducts, setting, lowRatedReviews, returnRequests, instagramPendingCount] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, createdAt: { gte: since24h } },
       select: {
@@ -48,6 +49,16 @@ export async function getDailyBriefingData() {
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),
+    // /admin/instagram에서 관리자 승인을 기다리는 상품 수(신상품 3일 이내 또는 베스트 지정,
+    // 아직 게시 안 한 것). 예약 에이전트가 매일 브리핑에 리마인드 문구로 포함시킨다.
+    prisma.product.count({
+      where: {
+        isActive: true,
+        thumbnailUrl: { not: null },
+        instagramPostedAt: null,
+        OR: [{ createdAt: { gte: since3d } }, { isFeatured: true }],
+      },
+    }),
   ]);
 
   function cardData(p: (typeof newProducts)[number]) {
@@ -71,6 +82,8 @@ export async function getDailyBriefingData() {
         text: setting?.promoBannerText ?? null,
         link: setting?.promoBannerLink ?? null,
       },
+      instagramPendingCount,
+      instagramAdminUrl: "https://www.singsingkok.co.kr/admin/instagram",
     },
     cs: {
       lowRatedReviewsLast7d: lowRatedReviews.map((r) => ({
