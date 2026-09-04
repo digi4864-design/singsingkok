@@ -16,10 +16,13 @@ const PAGE_SIZE = 50;
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string; newDays?: string }>;
 }) {
-  const { q, category, page: pageRaw } = await searchParams;
+  const { q, category, page: pageRaw, newDays } = await searchParams;
   const page = Math.max(1, Number(pageRaw) || 1);
+  const newDaysNum = newDays ? Number(newDays) : null;
+  const isNewOnly = Boolean(newDaysNum && newDaysNum > 0);
+  const sinceDate = isNewOnly ? new Date(Date.now() - newDaysNum! * 24 * 60 * 60 * 1000) : null;
 
   const where = {
     ...(q
@@ -31,6 +34,7 @@ export default async function AdminProductsPage({
         }
       : {}),
     ...(category ? { categoryId: category } : {}),
+    ...(sinceDate ? { createdAt: { gte: sinceDate } } : {}),
   };
 
   const [categories, products, totalCount, sharedThumbnailGroups] = await Promise.all([
@@ -48,10 +52,11 @@ export default async function AdminProductsPage({
         thumbnailUrl: true,
         isActive: true,
         isFeatured: true,
+        createdAt: true,
         category: { select: { name: true } },
         options: { select: { sellingPrice: true } },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: isNewOnly ? { createdAt: "desc" } : { updatedAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -65,6 +70,7 @@ export default async function AdminProductsPage({
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (category) params.set("category", category);
+    if (newDays) params.set("newDays", newDays);
     if (targetPage > 1) params.set("page", String(targetPage));
     const qs = params.toString();
     return qs ? `/admin/products?${qs}` : "/admin/products";
@@ -79,8 +85,9 @@ export default async function AdminProductsPage({
         </p>
       </div>
       <p className="text-sm text-gray-500 mb-4">
-        카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를
-        일괄 이동할 수도 있습니다.
+        {isNewOnly
+          ? `최근 ${newDaysNum}일 이내 등록된 상품만 표시 중입니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다.`
+          : "카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다."}
       </p>
 
       {sharedThumbnailGroups.length > 0 && (
@@ -152,6 +159,16 @@ export default async function AdminProductsPage({
             </option>
           ))}
         </select>
+        <select
+          name="newDays"
+          defaultValue={newDays ?? ""}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+        >
+          <option value="">전체 등록일</option>
+          <option value="1">신규(1일 이내)</option>
+          <option value="3">신규(3일 이내)</option>
+          <option value="7">신규(7일 이내)</option>
+        </select>
         <button
           type="submit"
           className="px-4 py-1.5 text-sm rounded-lg border border-gray-300 hover:border-primary"
@@ -190,6 +207,7 @@ export default async function AdminProductsPage({
               <th className="text-left px-4 py-2 font-medium">카테고리</th>
               <th className="text-left px-4 py-2 font-medium">옵션</th>
               <th className="text-left px-4 py-2 font-medium">최저가</th>
+              {isNewOnly && <th className="text-left px-4 py-2 font-medium">등록일</th>}
               <th className="text-left px-4 py-2 font-medium">공개여부</th>
               <th className="text-left px-4 py-2 font-medium">베스트</th>
               <th className="px-4 py-2"></th>
@@ -198,7 +216,7 @@ export default async function AdminProductsPage({
           <tbody className="divide-y divide-gray-100">
             {products.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={isNewOnly ? 8 : 7} className="px-4 py-10 text-center text-gray-400">
                   조건에 맞는 상품이 없습니다.
                 </td>
               </tr>
@@ -223,6 +241,9 @@ export default async function AdminProductsPage({
                   <td className="px-4 py-2 text-gray-500">{p.category?.name ?? "미지정"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.options.length}개</td>
                   <td className="px-4 py-2">{minPrice !== null ? formatWon(minPrice) : "-"}</td>
+                  {isNewOnly && (
+                    <td className="px-4 py-2 text-gray-500">{p.createdAt.toLocaleDateString("ko-KR")}</td>
+                  )}
                   <td className="px-4 py-2">
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs ${
