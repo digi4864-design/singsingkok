@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-04",
+  "marketing": {
+    "newProductsLast24h": [
+      {
+        "id": "cmtm8w0qy0005jp04c3wepbbf",
+        "name": "하우스감귤 선물세트",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtm8w0qy0005jp04c3wepbbf/thumb-1.jpg",
+        "minPrice": 22990,
+        "url": "https://www.singsingkok.co.kr/products/cmtm8w0qy0005jp04c3wepbbf"
+      },
+      {
+        "id": "cmtm8w0q40001jp04fguhq0l4",
+        "name": "냉장 돈등갈비",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtm8w0q40001jp04fguhq0l4/thumb-1.jpg",
+        "minPrice": 25380,
+        "url": "https://www.singsingkok.co.kr/products/cmtm8w0q40001jp04fguhq0l4"
+      }
+    ],
+    "featuredProducts": [
+      {
+        "id": "cmthdovph030vukf8v6f4ykeo",
+        "name": "참외",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmthdovph030vukf8v6f4ykeo/manual-thumb-1788190529137-cb2mf.jpg",
+        "minPrice": 6960,
+        "url": "https://www.singsingkok.co.kr/products/cmthdovph030vukf8v6f4ykeo"
+      },
+      {
+        "id": "cmtejs7p101e0uk3oq3rlgok7",
+        "name": "달콤한 황도",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejs7p101e0uk3oq3rlgok7/manual-thumb-1788253201420-yuak2.jpg",
+        "minPrice": 9820,
+        "url": "https://www.singsingkok.co.kr/products/cmtejs7p101e0uk3oq3rlgok7"
+      },
+      {
+        "id": "cmtejs29l01ckuk3o4bswyj7n",
+        "name": "제철 천도복숭아",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejs29l01ckuk3o4bswyj7n/thumb-1.jpg",
+        "minPrice": 8710,
+        "url": "https://www.singsingkok.co.kr/products/cmtejs29l01ckuk3o4bswyj7n"
+      },
+      {
+        "id": "cmtejr8px0187uk3o0l3p2rtt",
+        "name": "홍무화과",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejr8px0187uk3o0l3p2rtt/manual-thumb-1788254088461-iv9kt.jpg",
+        "minPrice": 12290,
+        "url": "https://www.singsingkok.co.kr/products/cmtejr8px0187uk3o0l3p2rtt"
+      },
+      {
+        "id": "cmtejp8qn010fuk3o3w33drzz",
+        "name": "하우스 샤인머스켓",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejp8qn010fuk3o3w33drzz/manual-thumb-1788253978303-322ga.jpg",
+        "minPrice": 9360,
+        "url": "https://www.singsingkok.co.kr/products/cmtejp8qn010fuk3o3w33drzz"
+      },
+      {
+        "id": "cmtejomcd00xguk3o9y8xfxrh",
+        "name": "딱딱이 백도",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejomcd00xguk3o9y8xfxrh/manual-thumb-1788027211589-3ljfx.jpg",
+        "minPrice": 8450,
+        "url": "https://www.singsingkok.co.kr/products/cmtejomcd00xguk3o9y8xfxrh"
+      },
+      {
+        "id": "cmtejnn1e00stuk3oxxufzhuq",
+        "name": "거봉",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejnn1e00stuk3oxxufzhuq/manual-thumb-1788185058326-f9rpk.png",
+        "minPrice": 9880,
+        "url": "https://www.singsingkok.co.kr/products/cmtejnn1e00stuk3oxxufzhuq"
+      },
+      {
+        "id": "cmtejk0wr00d1uk3oh24bjbcn",
+        "name": "홍로 사과",
+        "thumbnailUrl": "https://z8w1idmvdxmtzxy3.public.blob.vercel-storage.com/products/cmtejk0wr00d1uk3oh24bjbcn/thumb-1.jpg",
+        "minPrice": 8320,
+        "url": "https://www.singsingkok.co.kr/products/cmtejk0wr00d1uk3oh24bjbcn"
+      }
+    ],
+    "promoBanner": {
+      "enabled": true,
+      "text": "🎉 회원가입하면 5% 할인 쿠폰 즉시 지급!",
+      "link": "/signup"
+    }
+  },
+  "cs": {
+    "lowRatedReviewsLast7d": [],
+    "returnRequests": []
+  }
+}
