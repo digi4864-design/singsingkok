@@ -1,5 +1,6 @@
 import { getStorefrontName } from "@/lib/productDisplay";
 import { formatWon } from "@/lib/format";
+import { getFruitCareTip } from "@/lib/fruitCareTips";
 
 interface CaptionProduct {
   id: string;
@@ -53,6 +54,8 @@ export function buildDefaultCaption(product: CaptionProduct, minPrice: number | 
   const badge = isNew ? "🆕 신상품 입고!" : "🌞 지금 추천드리는 상품";
   const productUrl = `https://www.singsingkok.co.kr/products/${product.id}`;
   const hashtags = buildHashtags(product).join(" ");
+  const careTip = getFruitCareTip(name);
+  const careLine = careTip ? `\n\n🍽 맛있게 먹는 법\n${careTip}` : "";
 
-  return `${badge}\n\n${name}${priceLine}\n\n산지에서 바로 받아보는 신선함, 싱싱콕에서 만나보세요 🥬\n🔗 ${productUrl}\n👉 더 많은 상품은 프로필 링크에서 만나보세요\n\n${hashtags}`;
+  return `${badge}\n\n${name}${priceLine}${careLine}\n\n산지에서 바로 받아보는 신선함, 싱싱콕에서 만나보세요 🥬\n🔗 ${productUrl}\n👉 더 많은 상품은 프로필 링크에서 만나보세요\n\n${hashtags}`;
 }
