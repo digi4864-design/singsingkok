@@ -49,12 +49,29 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
   const shippedItems = order.items.filter((item) => item.shipment && item.shipment.status !== "READY");
   const isOwner = Boolean(session?.user && session.user.id === order.customerId);
 
+  const productIdsInOrder = [...new Set(order.items.map((item) => item.productOption.productId))];
+  const reviewedIds =
+    isOwner && session?.user
+      ? new Set(
+          (
+            await prisma.review.findMany({
+              where: { userId: session.user.id, productId: { in: productIdsInOrder } },
+              select: { productId: true },
+            })
+          ).map((r) => r.productId)
+        )
+      : new Set<string>();
+
   const reviewLinks = isOwner
     ? Array.from(
         new Map(
           order.items.map((item) => [item.productOption.productId, item.productName])
         ).entries()
-      ).map(([productId, productName]) => ({ productId, productName }))
+      ).map(([productId, productName]) => ({
+        productId,
+        productName,
+        reviewed: reviewedIds.has(productId),
+      }))
     : [];
 
   return (

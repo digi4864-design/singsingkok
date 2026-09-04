@@ -15,7 +15,7 @@ export function OrderActions({
   orderId: string;
   status: string;
   returnReason: string | null;
-  reviewLinks: { productId: string; productName: string }[];
+  reviewLinks: { productId: string; productName: string; reviewed: boolean }[];
 }) {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnState, returnAction, returnPending] = useActionState(requestReturnAction, initialReturnState);
@@ -51,22 +51,47 @@ export function OrderActions({
           </div>
         )}
 
-        {status === "DELIVERED" && reviewLinks.length > 0 && (
-          <div>
-            <h2 className="text-sm font-semibold text-gray-700 mb-2">리뷰 작성</h2>
-            <div className="flex flex-wrap gap-2">
-              {reviewLinks.map((item) => (
-                <Link
-                  key={item.productId}
-                  href={`/products/${item.productId}#review`}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:border-primary hover:text-primary"
-                >
-                  {item.productName} 리뷰 작성하기
-                </Link>
-              ))}
+        {status === "DELIVERED" && reviewLinks.length > 0 && (() => {
+          const unreviewed = reviewLinks.filter((item) => !item.reviewed);
+          const reviewed = reviewLinks.filter((item) => item.reviewed);
+          return (
+            <div className="space-y-2">
+              {unreviewed.length > 0 && (
+                <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                  <h2 className="text-sm font-bold text-gray-900 mb-1">⭐ 리뷰 남기고 500P 받기</h2>
+                  <p className="text-xs text-gray-500 mb-3">
+                    구매하신 상품은 어떠셨나요? 리뷰를 남겨주시면 500포인트를 바로 드려요.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {unreviewed.map((item) => (
+                      <Link
+                        key={item.productId}
+                        href={`/products/${item.productId}#review`}
+                        className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover active:scale-[0.98] transition-transform"
+                      >
+                        <span>{item.productName}</span>
+                        <span>리뷰 작성하기 →</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {reviewed.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {reviewed.map((item) => (
+                    <Link
+                      key={item.productId}
+                      href={`/products/${item.productId}#review`}
+                      className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-400 hover:border-primary hover:text-primary"
+                    >
+                      ✓ {item.productName} 리뷰 수정하기
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {!showReturnForm ? (
           <button
