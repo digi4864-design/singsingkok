@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
-import { postImageToInstagram } from "@/lib/instagram";
+import { postImagesToInstagram } from "@/lib/instagram";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 export interface PostState {
@@ -21,15 +21,21 @@ export async function postProductToInstagramAction(_prev: PostState, formData: F
 
   const product = await prisma.product.findUniqueOrThrow({
     where: { id: productId },
-    select: { thumbnailUrl: true },
+    select: { thumbnailUrl: true, thumbnailImages: true },
   });
 
-  if (!product.thumbnailUrl) {
+  const images = product.thumbnailImages.length > 0
+    ? product.thumbnailImages
+    : product.thumbnailUrl
+      ? [product.thumbnailUrl]
+      : [];
+
+  if (images.length === 0) {
     return { ok: false, message: "썸네일 이미지가 없는 상품입니다." };
   }
 
   try {
-    await postImageToInstagram(product.thumbnailUrl, caption);
+    await postImagesToInstagram(images, caption);
   } catch (err) {
     return { ok: false, message: `게시 실패: ${(err as Error).message}` };
   }

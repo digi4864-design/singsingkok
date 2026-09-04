@@ -10,6 +10,7 @@ const SELECT = {
   name: true,
   displayName: true,
   thumbnailUrl: true,
+  thumbnailImages: true,
   createdAt: true,
   instagramPostedAt: true,
   options: { select: { sellingPrice: true } },
@@ -65,6 +66,7 @@ export default async function AdminInstagramPage() {
                 productId={p.id}
                 productName={getStorefrontName(p)}
                 thumbnailUrl={p.thumbnailUrl!}
+                imageCount={p.thumbnailImages.length || 1}
                 defaultCaption={buildDefaultCaption(p, minPrice(p.options), true)}
               />
             ))}
@@ -84,6 +86,7 @@ export default async function AdminInstagramPage() {
                 productId={p.id}
                 productName={getStorefrontName(p)}
                 thumbnailUrl={p.thumbnailUrl!}
+                imageCount={p.thumbnailImages.length || 1}
                 defaultCaption={buildDefaultCaption(p, minPrice(p.options), false)}
               />
             ))}

@@ -26,6 +26,35 @@ async function createImageContainer(imageUrl: string, caption: string): Promise<
   return data.id as string;
 }
 
+// 캐러셀(여러 장) 게시용 자식 미디어. 캡션은 부모(캐러셀) 컨테이너에만 붙는다.
+async function createCarouselItemContainer(imageUrl: string): Promise<string> {
+  const { token, accountId } = requireEnv();
+  const res = await fetch(`${GRAPH_BASE}/${accountId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: token }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.id) {
+    throw new Error(`인스타그램 캐러셀 항목 생성 실패: ${JSON.stringify(data)}`);
+  }
+  return data.id as string;
+}
+
+async function createCarouselContainer(childIds: string[], caption: string): Promise<string> {
+  const { token, accountId } = requireEnv();
+  const res = await fetch(`${GRAPH_BASE}/${accountId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_type: "CAROUSEL", children: childIds, caption, access_token: token }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.id) {
+    throw new Error(`인스타그램 캐러셀 게시물 생성 실패: ${JSON.stringify(data)}`);
+  }
+  return data.id as string;
+}
+
 async function waitUntilFinished(containerId: string, timeoutMs = 30_000): Promise<void> {
   const { token } = requireEnv();
   const startedAt = Date.now();
@@ -57,8 +86,26 @@ async function publishContainer(containerId: string): Promise<string> {
   return data.id as string;
 }
 
-export async function postImageToInstagram(imageUrl: string, caption: string): Promise<{ mediaId: string }> {
-  const containerId = await createImageContainer(imageUrl, caption);
+const CAROUSEL_MAX_IMAGES = 10;
+
+// 이미지 1장이면 일반 게시물, 2장 이상이면 캐러셀(여러 장 넘기는 게시물)로 자동 전환한다.
+// 인스타그램 캐러셀은 최소 2장, 최대 10장 제한이 있어 그 이상은 앞에서부터 잘라서 쓴다.
+export async function postImagesToInstagram(imageUrls: string[], caption: string): Promise<{ mediaId: string }> {
+  const images = imageUrls.slice(0, CAROUSEL_MAX_IMAGES);
+  if (images.length === 0) {
+    throw new Error("게시할 이미지가 없습니다.");
+  }
+
+  if (images.length === 1) {
+    const containerId = await createImageContainer(images[0], caption);
+    await waitUntilFinished(containerId);
+    const mediaId = await publishContainer(containerId);
+    return { mediaId };
+  }
+
+  const childIds = await Promise.all(images.map((url) => createCarouselItemContainer(url)));
+  await Promise.all(childIds.map((id) => waitUntilFinished(id)));
+  const containerId = await createCarouselContainer(childIds, caption);
   await waitUntilFinished(containerId);
   const mediaId = await publishContainer(containerId);
   return { mediaId };

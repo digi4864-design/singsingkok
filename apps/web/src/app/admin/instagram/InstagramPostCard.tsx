@@ -10,11 +10,13 @@ export function InstagramPostCard({
   productId,
   productName,
   thumbnailUrl,
+  imageCount,
   defaultCaption,
 }: {
   productId: string;
   productName: string;
   thumbnailUrl: string;
+  imageCount: number;
   defaultCaption: string;
 }) {
   const [state, formAction, isPending] = useActionState(postProductToInstagramAction, initialState);
@@ -27,7 +29,10 @@ export function InstagramPostCard({
       </div>
       <form action={formAction} className="flex-1 min-w-0">
         <input type="hidden" name="productId" value={productId} />
-        <p className="text-sm font-medium text-gray-900 mb-1.5">{productName}</p>
+        <p className="text-sm font-medium text-gray-900 mb-0.5">{productName}</p>
+        <p className="text-xs text-gray-400 mb-1.5">
+          {imageCount > 1 ? `사진 ${imageCount}장 (여러 장 게시)` : "사진 1장"}
+        </p>
         <textarea
           name="caption"
           defaultValue={defaultCaption}
