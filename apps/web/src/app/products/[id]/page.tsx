@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,6 +9,44 @@ import { ReviewForm } from "@/components/ReviewForm";
 import { auth } from "@/lib/auth";
 import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
 import { RestockSubscribeButton } from "@/components/RestockSubscribeButton";
+import { formatWon } from "@/lib/format";
+
+// 카카오톡/문자/인스타그램 바이오 링크 등으로 상품이 공유될 때 실제 상품 사진·이름·가격이
+// 미리보기 카드에 뜨도록 한다(레이아웃 기본값은 사이트 대표 이미지라, 여기서 상품별로 덮어쓴다).
+export async function generateMetadata(props: PageProps<"/products/[id]">): Promise<Metadata> {
+  const { id } = await props.params;
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: {
+      name: true,
+      displayName: true,
+      thumbnailUrl: true,
+      options: { select: { sellingPrice: true } },
+    },
+  });
+  if (!product) return {};
+
+  const name = getStorefrontName(product);
+  const prices = product.options.map((o) => o.sellingPrice).filter((n) => n > 0);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const description = minPrice != null ? `${formatWon(minPrice)}부터 · 산지직송 신선식품` : "산지직송 신선식품";
+
+  return {
+    title: name,
+    description,
+    openGraph: {
+      title: name,
+      description,
+      images: product.thumbnailUrl ? [{ url: product.thumbnailUrl }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: name,
+      description,
+      images: product.thumbnailUrl ? [product.thumbnailUrl] : undefined,
+    },
+  };
+}
 
 export default async function ProductDetailPage(props: PageProps<"/products/[id]">) {
   const { id } = await props.params;

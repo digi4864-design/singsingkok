@@ -21,14 +21,37 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://www.singsingkok.co.kr";
+const SITE_TITLE = "싱싱콕";
+const SITE_DESCRIPTION = "신선한 농축산물을 산지에서 바로 받아보세요";
+
 export const metadata: Metadata = {
-  title: "싱싱콕",
-  description: "신선한 농축산물을 산지에서 바로 받아보세요",
+  metadataBase: new URL(SITE_URL),
+  title: { default: SITE_TITLE, template: `%s | ${SITE_TITLE}` },
+  description: SITE_DESCRIPTION,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "싱싱콕",
+    title: SITE_TITLE,
+  },
+  // 카카오톡/문자/SNS로 링크를 공유했을 때(친구추천 링크, 상품 링크 등) 미리보기 카드가
+  // 뜨도록 하는 기본값. 상품 상세페이지는 products/[id]/page.tsx의 generateMetadata가
+  // 이 값을 상품별로 덮어써서 실제 상품 사진이 뜨게 한다.
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: SITE_URL,
+    siteName: SITE_TITLE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: SITE_TITLE }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/og-image.png"],
   },
 };
 
