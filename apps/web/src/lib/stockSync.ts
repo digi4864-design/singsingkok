@@ -32,7 +32,12 @@ export interface StockSyncSummary {
 // 채워진 이미지는 그쪽에서도 건드리지 않는다) - 이 함수는 재고 상태와 텍스트 설명만 다룬다.
 export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
   const products = await prisma.product.findMany({
-    include: { options: { select: { id: true, optionName: true, isAvailable: true } } },
+    select: {
+      id: true,
+      name: true,
+      isActive: true,
+      options: { select: { id: true, optionName: true, isAvailable: true } },
+    },
   });
 
   let matched = 0;

@@ -14,7 +14,19 @@ export default async function WishlistPage() {
   const [items, reviewStats] = await Promise.all([
     prisma.wishlist.findMany({
       where: { userId: session.user.id },
-      include: { product: { include: { options: true } } },
+      // description 등 무거운 필드(최고집 원본에 이미지가 base64로 박혀 최대 9MB)까지
+      // 딸려오지 않도록 카드 렌더링에 실제로 쓰는 필드만 select한다.
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            thumbnailUrl: true,
+            options: { select: { sellingPrice: true, compliancePrice: true, isAvailable: true } },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     getReviewStatsMap(),

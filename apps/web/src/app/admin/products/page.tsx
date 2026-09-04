@@ -37,10 +37,20 @@ export default async function AdminProductsPage({
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.product.findMany({
       where,
-      // 목록에서는 옵션별 최저가/개수만 필요해서, 옵션 전체(택배사/발주마감시간 등 10여개
-      // 필드)를 다 가져오지 않고 판매가만 select해 전송량을 줄인다. 200개를 한 번에 다
-      // 불러오면 느려서(옵션 포함 전송량이 큼) 페이지당 개수를 제한한다.
-      include: { category: true, options: { select: { sellingPrice: true } } },
+      // 목록에서는 상품명/카테고리/옵션 최저가만 필요하다. description/supplierNotice는
+      // 최고집 쪽에서 이미지가 base64로 통째로 박혀 들어오는 경우가 있어 상품 하나에 최대
+      // 9MB까지도 나가는데, include를 쓰면 이런 무거운 필드까지 전부 같이 딸려와 목록
+      // 조회 자체가 느려진다. select로 실제 쓰는 필드만 명시해서 뺀다.
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        thumbnailUrl: true,
+        isActive: true,
+        isFeatured: true,
+        category: { select: { name: true } },
+        options: { select: { sellingPrice: true } },
+      },
       orderBy: { updatedAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,

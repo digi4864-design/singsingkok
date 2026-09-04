@@ -12,7 +12,7 @@ export async function toggleProductActiveAction(productId: string, _formData: Fo
   await requireAdmin();
   const product = await prisma.product.findUniqueOrThrow({
     where: { id: productId },
-    include: { options: { select: { isAvailable: true } } },
+    select: { name: true, isActive: true, options: { select: { isAvailable: true } } },
   });
   const willBeActive = !product.isActive;
 
@@ -35,7 +35,10 @@ export async function toggleProductActiveAction(productId: string, _formData: Fo
 
 export async function toggleProductFeaturedAction(productId: string, _formData: FormData) {
   await requireAdmin();
-  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  const product = await prisma.product.findUniqueOrThrow({
+    where: { id: productId },
+    select: { isFeatured: true },
+  });
 
   await prisma.product.update({
     where: { id: productId },

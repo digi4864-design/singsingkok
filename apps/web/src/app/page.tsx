@@ -4,15 +4,13 @@ import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
 import { PromoPopup } from "@/components/PromoPopup";
 import { getStorefrontName } from "@/lib/productDisplay";
-import { getReviewStatsMap } from "@/lib/reviewStats";
 import { categoryIcon } from "@/lib/categoryIcons";
-import { sortCategoriesForStorefront } from "@/lib/categoryOrder";
 import { auth } from "@/lib/auth";
+import { getHomepageSharedData } from "@/lib/homepageData";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 24;
-const SECTION_SIZE = 8;
 
 export default async function HomePage({
   searchParams,
@@ -38,19 +36,28 @@ export default async function HomePage({
   const session = await auth();
   const isDefaultView = !categorySlug && !q && page === 1;
 
-  // 홈 화면 기본(카테고리별 섹션) 뷰의 쿼리를 전부 한 번에 병렬로 날린다. 예전엔 카테고리
-  // 목록을 먼저 받은 뒤 카테고리마다 별도 쿼리를 순차적으로 날려서, DB 리전과 거리가 있는
-  // 배포 환경에서 왕복 지연이 여러 번 누적돼 페이지 이동이 눈에 띄게 느렸다.
-  const [categoriesRaw, products, totalCount, wishlistedIds, featuredProducts, setting, reviewStats, currentUser] =
-    await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
+  // 카테고리/추천상품/카테고리별 섹션/리뷰통계/배너설정은 모든 방문자에게 동일한 데이터라
+  // 90초간 캐시된 값을 재사용한다(lib/homepageData.ts). 회원별로 달라지는 찜/포인트·쿠폰
+  // 상태만 매 요청마다 새로 조회한다. 상품이 늘어날수록 무제한 조회가 느려지는 문제 때문에
+  // 카테고리마다 개수를 제한해서 가져온다 — id IN (...) 목록으로 한 번에 묶는 방식도
+  // 시도해봤는데 오히려 더 느려서 카테고리별 병렬 쿼리 방식을 유지한다.
+  const [shared, products, totalCount, wishlistedIds, currentUser] = await Promise.all([
+    getHomepageSharedData(),
     // 기본(전체) 화면에서는 카테고리별 섹션으로 대체 노출하므로, 검색/카테고리 필터/페이지네이션이
     // 실제로 걸려있을 때만 이 평면 목록 쿼리를 사용한다.
     isDefaultView
       ? Promise.resolve([])
       : prisma.product.findMany({
           where,
-          include: { options: true },
+          // description 등 무거운 필드(최고집 원본에 이미지가 base64로 박혀 최대 9MB)까지
+          // 딸려오지 않도록 카드 렌더링에 실제로 쓰는 필드만 select한다.
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            thumbnailUrl: true,
+            options: { select: { sellingPrice: true, compliancePrice: true, isAvailable: true } },
+          },
           orderBy: { updatedAt: "desc" },
           skip: (page - 1) * PAGE_SIZE,
           take: PAGE_SIZE,
@@ -59,16 +66,6 @@ export default async function HomePage({
     session?.user
       ? prisma.wishlist.findMany({ where: { userId: session.user.id }, select: { productId: true } })
       : Promise.resolve([]),
-    isDefaultView
-      ? prisma.product.findMany({
-          where: { isActive: true, isFeatured: true },
-          include: { options: true },
-          orderBy: { updatedAt: "desc" },
-          take: 8,
-        })
-      : Promise.resolve([]),
-    prisma.storeSetting.findUnique({ where: { id: "default" } }),
-    getReviewStatsMap(),
     session?.user
       ? prisma.user.findUnique({
           where: { id: session.user.id },
@@ -77,30 +74,12 @@ export default async function HomePage({
       : Promise.resolve(null),
   ]);
 
+  const { categories, featuredProducts, setting, categorySections } = shared;
+  const reviewStats = new Map(shared.reviewStatsEntries);
+
   const firstPurchaseCouponEligible = Boolean(
     currentUser?.hasFirstPurchaseCoupon && !currentUser?.firstPurchaseCouponUsed
   );
-
-  const categories = sortCategoriesForStorefront(categoriesRaw);
-
-  // 카테고리별 섹션은 카테고리당 SECTION_SIZE개만 필요하므로, 전체 상품(옵션 포함)을 통째로
-  // 가져와 메모리에서 자르는 대신 카테고리마다 개수를 제한한 쿼리를 병렬로 날린다.
-  // (상품이 늘어날수록 무제한 조회가 급격히 느려져 실제로 홈 화면이 수십 초씩 걸리는
-  // 문제가 있었다. id IN (...) 목록으로 한 번에 묶어 가져오는 방식도 시도해봤는데, 이
-  // 데이터에서는 오히려 더 느려서 카테고리별 병렬 쿼리 방식을 유지한다.)
-  const categorySections = isDefaultView
-    ? await Promise.all(
-        categories.map(async (c) => ({
-          category: c,
-          products: await prisma.product.findMany({
-            where: { isActive: true, categoryId: c.id },
-            include: { options: true },
-            orderBy: { updatedAt: "desc" },
-            take: SECTION_SIZE,
-          }),
-        }))
-      )
-    : [];
 
   const wishlistedSet = new Set(wishlistedIds.map((w) => w.productId));
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));

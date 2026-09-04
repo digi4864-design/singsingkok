@@ -24,13 +24,27 @@ export async function GET(request: Request) {
   const [newProducts, featuredProducts, setting, lowRatedReviews, returnRequests] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, createdAt: { gte: since24h } },
-      include: { options: { select: { sellingPrice: true } } },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        thumbnailUrl: true,
+        createdAt: true,
+        options: { select: { sellingPrice: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
     prisma.product.findMany({
       where: { isActive: true, isFeatured: true },
-      include: { options: { select: { sellingPrice: true } } },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        thumbnailUrl: true,
+        createdAt: true,
+        options: { select: { sellingPrice: true } },
+      },
       orderBy: { updatedAt: "desc" },
       take: 8,
     }),

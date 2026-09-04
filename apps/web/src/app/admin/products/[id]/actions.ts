@@ -130,7 +130,10 @@ export async function uploadThumbnailAction(
   }
 
   try {
-    const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      select: { thumbnailImages: true },
+    });
     const remainingSlots = MAX_THUMBNAILS - product.thumbnailImages.length;
     if (remainingSlots <= 0) {
       return { ok: false, message: `썸네일은 최대 ${MAX_THUMBNAILS}장까지 등록할 수 있습니다.` };
@@ -172,7 +175,10 @@ export async function removeThumbnailImageAction(formData: FormData) {
   const productId = String(formData.get("productId"));
   const url = String(formData.get("url"));
 
-  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  const product = await prisma.product.findUniqueOrThrow({
+    where: { id: productId },
+    select: { thumbnailImages: true },
+  });
   const thumbnailImages = product.thumbnailImages.filter((u) => u !== url);
   await prisma.product.update({
     where: { id: productId },
@@ -204,7 +210,10 @@ export async function uploadDetailImagesAction(
   }
 
   try {
-    const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      select: { images: true },
+    });
     const newUrls: string[] = [];
     for (const file of uploadedFiles) {
       newUrls.push(await saveUploadedFile(productId, file, "manual-detail"));
@@ -232,7 +241,10 @@ export async function removeDetailImageAction(formData: FormData) {
   const productId = String(formData.get("productId"));
   const url = String(formData.get("url"));
 
-  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  const product = await prisma.product.findUniqueOrThrow({
+    where: { id: productId },
+    select: { images: true },
+  });
   await prisma.product.update({
     where: { id: productId },
     data: { images: product.images.filter((u) => u !== url) },

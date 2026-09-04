@@ -21,6 +21,9 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
     prisma.product.findUnique({
       where: { id },
       include: { category: true, options: { orderBy: { optionName: "asc" } } },
+      // 이 화면에서는 description/supplierNotice를 안 쓰는데, 최고집 원본에 이미지가
+      // base64로 통째로 박혀 들어와 상품 하나에 최대 9MB까지 나가는 경우가 있어 뺀다.
+      omit: { description: true, supplierNotice: true },
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
