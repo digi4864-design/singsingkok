@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@farm-mall/db";
-import { getStorefrontName } from "@/lib/productDisplay";
+import { getDailyBriefingData } from "@/lib/dailyBriefing";
 
 export const dynamic = "force-dynamic";
 
 // 마케팅팀·CS팀 예약 에이전트가 매일 아침 확인하는 요약 데이터.
 // Vercel Cron과 동일한 방식으로 BRIEFING_SECRET 없이는 호출할 수 없게 막는다.
-// 클라우드 예약 에이전트의 샌드박스가 임의 아웃바운드 요청(curl 등)을 조직 정책으로 막아서,
-// Authorization 헤더를 못 붙이는 도구(WebFetch 등)를 위해 쿼리스트링 인증도 함께 지원한다.
+// (실제로는 클라우드 예약 에이전트 샌드박스가 임의 아웃바운드 요청을 조직 정책으로 막아서
+// 이 엔드포인트를 직접 호출하지는 못하고, 대신 /api/cron/publish-briefing이 같은 데이터를
+// 저장소 파일로 기록해두면 예약 에이전트가 그 파일을 읽는다. 이 API는 관리자가 직접
+// 확인하거나 다른 도구에서 조회할 때를 위해 남겨둔다.)
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const authHeader = request.headers.get("authorization");
@@ -18,90 +19,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "인증되지 않은 요청입니다." }, { status: 401 });
   }
 
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  const [newProducts, featuredProducts, setting, lowRatedReviews, returnRequests] = await Promise.all([
-    prisma.product.findMany({
-      where: { isActive: true, createdAt: { gte: since24h } },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        thumbnailUrl: true,
-        createdAt: true,
-        options: { select: { sellingPrice: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-    prisma.product.findMany({
-      where: { isActive: true, isFeatured: true },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        thumbnailUrl: true,
-        createdAt: true,
-        options: { select: { sellingPrice: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 8,
-    }),
-    prisma.storeSetting.findUnique({ where: { id: "default" } }),
-    prisma.review.findMany({
-      where: { rating: { lte: 2 }, isHidden: false, createdAt: { gte: since7d } },
-      include: { product: { select: { name: true, displayName: true } }, user: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
-    prisma.order.findMany({
-      where: { status: "RETURN_REQUESTED" },
-      select: { id: true, orderNo: true, recipientName: true, returnReason: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    }),
-  ]);
-
-  function cardData(p: (typeof newProducts)[number]) {
-    const prices = p.options.map((o) => o.sellingPrice).filter((n) => n > 0);
-    return {
-      id: p.id,
-      name: getStorefrontName(p),
-      thumbnailUrl: p.thumbnailUrl,
-      minPrice: prices.length ? Math.min(...prices) : null,
-      url: `https://www.singsingkok.co.kr/products/${p.id}`,
-    };
-  }
-
-  return NextResponse.json({
-    date: new Date().toISOString().slice(0, 10),
-    marketing: {
-      newProductsLast24h: newProducts.map(cardData),
-      featuredProducts: featuredProducts.map(cardData),
-      promoBanner: {
-        enabled: setting?.promoBannerEnabled ?? false,
-        text: setting?.promoBannerText ?? null,
-        link: setting?.promoBannerLink ?? null,
-      },
-    },
-    cs: {
-      lowRatedReviewsLast7d: lowRatedReviews.map((r) => ({
-        id: r.id,
-        productName: r.product.displayName ?? r.product.name,
-        rating: r.rating,
-        content: r.content,
-        userName: r.user.name ?? "구매자",
-        createdAt: r.createdAt,
-      })),
-      returnRequests: returnRequests.map((o) => ({
-        orderId: o.id,
-        orderNo: o.orderNo,
-        recipientName: o.recipientName,
-        returnReason: o.returnReason,
-        updatedAt: o.updatedAt,
-        adminUrl: `https://www.singsingkok.co.kr/admin/orders/${o.id}`,
-      })),
-    },
-  });
+  const data = await getDailyBriefingData();
+  return NextResponse.json(data);
 }
