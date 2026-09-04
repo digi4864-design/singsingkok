@@ -16,26 +16,36 @@ const PAGE_SIZE = 50;
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; page?: string; newDays?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string; newDays?: string; missing?: string }>;
 }) {
-  const { q, category, page: pageRaw, newDays } = await searchParams;
+  const { q, category, page: pageRaw, newDays, missing } = await searchParams;
   const page = Math.max(1, Number(pageRaw) || 1);
   const newDaysNum = newDays ? Number(newDays) : null;
   const isNewOnly = Boolean(newDaysNum && newDaysNum > 0);
   const sinceDate = isNewOnly ? new Date(Date.now() - newDaysNum! * 24 * 60 * 60 * 1000) : null;
+  const isMissingOrigin = missing === "origin";
+  const isMissingDescription = missing === "description";
 
-  const where = {
+  // q(이름 검색)와 missing(원산지/설명 누락) 필터가 둘 다 OR 조건을 쓰기 때문에, 같은
+  // 객체에 OR 키를 두 번 스프레드하면 뒤엣것이 앞엣것을 덮어써버린다. AND 배열로 묶어
+  // 각 조건을 독립적으로 유지한다.
+  const andConditions = [
     ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { displayName: { contains: q, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
-    ...(category ? { categoryId: category } : {}),
-    ...(sinceDate ? { createdAt: { gte: sinceDate } } : {}),
-  };
+      ? [
+          {
+            OR: [
+              { name: { contains: q, mode: "insensitive" as const } },
+              { displayName: { contains: q, mode: "insensitive" as const } },
+            ],
+          },
+        ]
+      : []),
+    ...(category ? [{ categoryId: category }] : []),
+    ...(sinceDate ? [{ createdAt: { gte: sinceDate } }] : []),
+    ...(isMissingOrigin ? [{ OR: [{ origin: null }, { origin: "" }] }] : []),
+    ...(isMissingDescription ? [{ OR: [{ description: null }, { description: "" }] }] : []),
+  ];
+  const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const [categories, products, totalCount, sharedThumbnailGroups] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
@@ -53,6 +63,7 @@ export default async function AdminProductsPage({
         isActive: true,
         isFeatured: true,
         createdAt: true,
+        origin: true,
         category: { select: { name: true } },
         options: { select: { sellingPrice: true } },
       },
@@ -71,6 +82,7 @@ export default async function AdminProductsPage({
     if (q) params.set("q", q);
     if (category) params.set("category", category);
     if (newDays) params.set("newDays", newDays);
+    if (missing) params.set("missing", missing);
     if (targetPage > 1) params.set("page", String(targetPage));
     const qs = params.toString();
     return qs ? `/admin/products?${qs}` : "/admin/products";
@@ -85,9 +97,13 @@ export default async function AdminProductsPage({
         </p>
       </div>
       <p className="text-sm text-gray-500 mb-4">
-        {isNewOnly
-          ? `최근 ${newDaysNum}일 이내 등록된 상품만 표시 중입니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다.`
-          : "카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다."}
+        {isMissingOrigin
+          ? "⚠ 원산지가 표시되지 않은 상품만 표시 중입니다. 농수산물의 원산지 표시에 관한 법률상 의무사항이니 확인해 입력해주세요."
+          : isMissingDescription
+            ? "상세설명이 없는 상품만 표시 중입니다."
+            : isNewOnly
+              ? `최근 ${newDaysNum}일 이내 등록된 상품만 표시 중입니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다.`
+              : "카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다."}
       </p>
 
       {sharedThumbnailGroups.length > 0 && (
@@ -169,6 +185,15 @@ export default async function AdminProductsPage({
           <option value="3">신규(3일 이내)</option>
           <option value="7">신규(7일 이내)</option>
         </select>
+        <select
+          name="missing"
+          defaultValue={missing ?? ""}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+        >
+          <option value="">전체 표시</option>
+          <option value="origin">⚠ 원산지 없음</option>
+          <option value="description">상세설명 없음</option>
+        </select>
         <button
           type="submit"
           className="px-4 py-1.5 text-sm rounded-lg border border-gray-300 hover:border-primary"
@@ -208,6 +233,7 @@ export default async function AdminProductsPage({
               <th className="text-left px-4 py-2 font-medium">옵션</th>
               <th className="text-left px-4 py-2 font-medium">최저가</th>
               {isNewOnly && <th className="text-left px-4 py-2 font-medium">등록일</th>}
+              {isMissingOrigin && <th className="text-left px-4 py-2 font-medium">원산지</th>}
               <th className="text-left px-4 py-2 font-medium">공개여부</th>
               <th className="text-left px-4 py-2 font-medium">베스트</th>
               <th className="px-4 py-2"></th>
@@ -216,7 +242,10 @@ export default async function AdminProductsPage({
           <tbody className="divide-y divide-gray-100">
             {products.length === 0 && (
               <tr>
-                <td colSpan={isNewOnly ? 8 : 7} className="px-4 py-10 text-center text-gray-400">
+                <td
+                  colSpan={7 + (isNewOnly ? 1 : 0) + (isMissingOrigin ? 1 : 0)}
+                  className="px-4 py-10 text-center text-gray-400"
+                >
                   조건에 맞는 상품이 없습니다.
                 </td>
               </tr>
@@ -243,6 +272,9 @@ export default async function AdminProductsPage({
                   <td className="px-4 py-2">{minPrice !== null ? formatWon(minPrice) : "-"}</td>
                   {isNewOnly && (
                     <td className="px-4 py-2 text-gray-500">{p.createdAt.toLocaleDateString("ko-KR")}</td>
+                  )}
+                  {isMissingOrigin && (
+                    <td className="px-4 py-2 text-red-500 text-xs">{p.origin || "⚠ 미표시"}</td>
                   )}
                   <td className="px-4 py-2">
                     <span
