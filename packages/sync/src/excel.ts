@@ -87,11 +87,17 @@ export function parseChoigozipExcel(buffer: Buffer): ParsedProduct[] {
     const managementCode = cell(row, col.managementCode);
     const optionName = cell(row, col.optionName);
     const sourceOptionId = managementCode || `${name}:${optionName || i}`;
+    const price = parseNumber(row[col.price!]) ?? 0;
+
+    // 최고집 엑셀에 "미리보기방지" 같은 이름으로 공급가 0원짜리 더미 행이 섞여 들어오는
+    // 경우가 있다(실제 발견: "구운계란" 상품에 0원으로 구매 가능한 옵션이 생겨있었음).
+    // 정상적인 도매 옵션이라면 공급가가 0원일 수 없으므로, 이런 행은 아예 건너뛴다.
+    if (optionName.includes("미리보기") || price <= 0) continue;
 
     const option: ParsedProductOption = {
       sourceOptionId,
       optionName: optionName || "기본",
-      price: parseNumber(row[col.price!]) ?? 0,
+      price,
       compliancePrice: col.compliancePrice !== undefined ? parseNumber(row[col.compliancePrice]) : undefined,
       isAvailable: col.status !== undefined ? cell(row, col.status) === "판매중" : true,
       supplierCourier: cell(row, col.courier) || undefined,
