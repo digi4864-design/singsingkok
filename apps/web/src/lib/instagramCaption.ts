@@ -1,7 +1,12 @@
 import { getStorefrontName } from "@/lib/productDisplay";
 import { formatWon } from "@/lib/format";
-import { getFruitCareTip } from "@/lib/fruitCareTips";
-import { getVegetableRecipeTip } from "@/lib/vegetableRecipeTips";
+import { FRUIT_CARE_TIPS } from "@/lib/fruitCareTips";
+import { VEGETABLE_RECIPE_TIPS } from "@/lib/vegetableRecipeTips";
+import { findBestTip } from "@/lib/tipMatcher";
+
+// 과일/채소 목록을 합쳐서 함께 검사해야 "긴 매칭 우선" 규칙이 두 목록 사이에서도 정확히
+// 적용된다(예: 채소쪽 "무"보다 과일쪽 "무화과"가 항상 우선하도록).
+const ALL_CARE_TIPS = [...FRUIT_CARE_TIPS, ...VEGETABLE_RECIPE_TIPS];
 
 interface CaptionProduct {
   id: string;
@@ -55,7 +60,7 @@ export function buildDefaultCaption(product: CaptionProduct, minPrice: number | 
   const badge = isNew ? "🆕 신상품 입고!" : "🌞 지금 추천드리는 상품";
   const productUrl = `https://www.singsingkok.co.kr/products/${product.id}`;
   const hashtags = buildHashtags(product).join(" ");
-  const careTip = getFruitCareTip(name) ?? getVegetableRecipeTip(name);
+  const careTip = findBestTip(name, ALL_CARE_TIPS);
   const careLine = careTip ? `\n\n🍽 맛있게 먹는 법\n${careTip}` : "";
 
   return `${badge}\n\n${name}${priceLine}${careLine}\n\n산지에서 바로 받아보는 신선함, 싱싱콕에서 만나보세요 🥬\n🔗 ${productUrl}\n👉 더 많은 상품은 프로필 링크에서 만나보세요\n\n${hashtags}`;

@@ -1,7 +1,10 @@
+import { findBestTip, type TipEntry } from "@/lib/tipMatcher";
+
 // 상품명에 포함된 채소 키워드를 인식해 간단한 추천 요리법을 붙여준다. fruitCareTips.ts와
-// 같은 패턴 - 복합어(예: "노각오이")를 일반어("오이")보다 먼저 매칭해야 하므로 순서가 중요하다.
+// 같은 패턴 - findBestTip이 "가장 긴 매칭 키워드 우선" 규칙으로 처리하므로(예: "무화과"가
+// 과일쪽에 있으면 여기 "무"보다 항상 우선), 순서를 신경 쓰지 않고 나열해도 된다.
 // 정식 레시피 전체(계량/단계별)가 아니라, 캡션에 넣기 좋은 한 문장짜리 요리 힌트로 유지한다.
-const VEGETABLE_RECIPE_TIPS: { keywords: string[]; tip: string }[] = [
+export const VEGETABLE_RECIPE_TIPS: TipEntry[] = [
   { keywords: ["노각오이", "노각"], tip: "속을 파내고 얇게 썰어 소금에 살짝 절인 뒤 물기를 꼭 짜고 고추장·식초·설탕·다진마늘·깨소금으로 무치면 새콤달콤 노각무침 완성이에요." },
   { keywords: ["오이"], tip: "어슷하게 썰어 소금에 살짝 절인 뒤 물기를 짜고 고추장·식초·설탕·다진마늘로 무치면 새콤달콤한 오이무침이 됩니다." },
   { keywords: ["가지"], tip: "채 썰어 찜기에 살짝 쪄낸 뒤 간장·참기름·다진마늘·쪽파로 무치면 부드럽고 고소한 가지나물이 돼요." },
@@ -26,10 +29,5 @@ const VEGETABLE_RECIPE_TIPS: { keywords: string[]; tip: string }[] = [
 ];
 
 export function getVegetableRecipeTip(productName: string): string | null {
-  for (const { keywords, tip } of VEGETABLE_RECIPE_TIPS) {
-    if (keywords.some((k) => productName.includes(k))) {
-      return tip;
-    }
-  }
-  return null;
+  return findBestTip(productName, VEGETABLE_RECIPE_TIPS);
 }

@@ -1,7 +1,11 @@
+import { findBestTip, type TipEntry } from "@/lib/tipMatcher";
+
 // 상품명에 포함된 과일 키워드를 인식해 보관법/후숙 여부 안내를 붙여준다.
-// 복합어(예: "천도복숭아")를 일반어("복숭아")보다 먼저 매칭해야 하므로 배열 순서가 중요하다.
+// 짧은 키워드(예: "감", "배")가 다른 단어에 우연히 포함되는 문제는 findBestTip이
+// "가장 긴 매칭 키워드 우선" 규칙으로 처리하므로(예: "무화과"가 있으면 채소쪽 "무"보다 항상 우선),
+// 여기서는 순서를 신경 쓰지 않고 자유롭게 나열해도 된다.
 // 마케팅 캡션에 그대로 들어가는 문구라 톤은 친근하게 유지한다.
-const FRUIT_CARE_TIPS: { keywords: string[]; tip: string }[] = [
+export const FRUIT_CARE_TIPS: TipEntry[] = [
   {
     keywords: ["천도복숭아", "황도", "백도", "복숭아"],
     tip: "만졌을 때 단단하면 실온에서 1~2일 후숙해주세요. 말랑해지고 향이 진해지면 가장 맛있게 먹을 수 있는 때예요. 다 익은 뒤엔 냉장 보관하고 되도록 빨리 드세요.",
@@ -32,13 +36,9 @@ const FRUIT_CARE_TIPS: { keywords: string[]; tip: string }[] = [
   { keywords: ["참외"], tip: "후숙이 필요 없어요, 냉장 보관 후 시원하게 드시면 더 맛있어요." },
   { keywords: ["수박"], tip: "통째로는 서늘한 실온 보관, 자른 뒤에는 랩으로 싸서 냉장 보관 후 빨리 드세요." },
   { keywords: ["자두"], tip: "단단하면 실온에서 하루 이틀 후숙해주세요. 살짝 말랑해지면 새콤달콤하게 드실 수 있어요." },
+  { keywords: ["무화과"], tip: "무화과는 수확 후 거의 후숙되지 않는 과일이라 구매하신 상태 그대로 드시는 게 가장 맛있어요. 무르기 쉬우니 냉장 보관하시고 2~3일 안에 드시는 걸 추천드려요." },
 ];
 
 export function getFruitCareTip(productName: string): string | null {
-  for (const { keywords, tip } of FRUIT_CARE_TIPS) {
-    if (keywords.some((k) => productName.includes(k))) {
-      return tip;
-    }
-  }
-  return null;
+  return findBestTip(productName, FRUIT_CARE_TIPS);
 }
