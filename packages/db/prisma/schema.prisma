@@ -120,6 +120,7 @@ model Product {
   origin           String?  // 원산지 (농수산물의 원산지 표시에 관한 법률에 따라 표시 필요)
   isActive         Boolean  @default(true)
   isFeatured       Boolean  @default(false) // 관리자가 지정하는 "제철 베스트 상품" - 메인 화면 상단 노출
+  instagramPostedAt DateTime? // 인스타그램에 게시한 시각(중복 게시 방지용). null이면 아직 게시 안 함
   category         Category? @relation(fields: [categoryId], references: [id])
   categoryId       String?
   options          ProductOption[]

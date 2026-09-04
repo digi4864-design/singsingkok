@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/products/import", label: "엑셀 업로드" },
   { href: "/admin/categories", label: "카테고리 관리" },
   { href: "/admin/reviews", label: "리뷰 관리" },
+  { href: "/admin/instagram", label: "인스타그램 게시" },
   { href: "/admin/pricing", label: "가격/마진 설정" },
   { href: "/admin/settings", label: "쇼핑몰 설정" },
 ];
