@@ -72,3 +72,23 @@ export async function notifyRestockSubscribers(productId: string, productName: s
 
   await prisma.restockSubscription.deleteMany({ where: { productId } });
 }
+
+// 배송완료 후 며칠 지난 주문의 구매자에게 리뷰 작성을 부탁하는 푸시를 보낸다(runReviewReminderBatch에서 호출).
+export async function notifyReviewReminder(userId: string, orderId: string, productNames: string[]) {
+  if (!ensureConfigured()) return;
+
+  const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+  if (subs.length === 0) return;
+
+  const body =
+    productNames.length === 1
+      ? `${productNames[0]} 어떠셨나요? 리뷰를 남겨주시면 다음 쇼핑에 큰 도움이 돼요 🙏`
+      : `${productNames[0]} 외 ${productNames.length - 1}건, 리뷰를 남겨주시면 다음 쇼핑에 큰 도움이 돼요 🙏`;
+
+  const payload = JSON.stringify({
+    title: "구매하신 상품은 어떠셨나요?",
+    body,
+    url: `/orders/${orderId}`,
+  });
+  await sendToSubscriptions(subs, payload);
+}
