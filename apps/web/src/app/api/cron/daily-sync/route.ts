@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runImageResyncBatch } from "@/lib/imageResync";
 import { runStockAndDescriptionSync } from "@/lib/stockSync";
 import { runReviewReminderBatch } from "@/lib/reviewReminder";
+import { runCartAbandonmentReminderBatch } from "@/lib/cartReminder";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -44,6 +45,11 @@ export async function GET(request: Request) {
     return null;
   });
 
+  const cartReminderSummary = await runCartAbandonmentReminderBatch().catch((err) => {
+    console.error("장바구니 리마인드 발송 실패:", err);
+    return null;
+  });
+
   const imageSummary = imageBatches.reduce(
     (acc, b) => ({
       updated: acc.updated + b.updated,
@@ -59,5 +65,6 @@ export async function GET(request: Request) {
     imageSync: { ...imageSummary, batches: imageBatches.length },
     stockSync: stockSummary,
     reviewReminder: reviewReminderSummary,
+    cartReminder: cartReminderSummary,
   });
 }

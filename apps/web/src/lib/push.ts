@@ -92,3 +92,23 @@ export async function notifyReviewReminder(userId: string, orderId: string, prod
   });
   await sendToSubscriptions(subs, payload);
 }
+
+// 장바구니에 담아두고 결제하지 않은 회원에게 리마인드 푸시를 보낸다(runCartAbandonmentReminderBatch에서 호출).
+export async function notifyCartAbandonment(userId: string, itemNames: string[]) {
+  if (!ensureConfigured()) return;
+
+  const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+  if (subs.length === 0) return;
+
+  const body =
+    itemNames.length === 1
+      ? `${itemNames[0]}, 장바구니에 담아두신 상품 잊지 않으셨나요?`
+      : `${itemNames[0]} 외 ${itemNames.length - 1}건, 장바구니에 담아두신 상품 잊지 않으셨나요?`;
+
+  const payload = JSON.stringify({
+    title: "장바구니를 확인해보세요",
+    body,
+    url: "/cart",
+  });
+  await sendToSubscriptions(subs, payload);
+}

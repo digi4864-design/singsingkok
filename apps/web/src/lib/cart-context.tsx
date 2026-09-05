@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { syncCartActivityAction } from "@/lib/cartActivityActions";
 
 export interface CartItem {
   optionId: string;
@@ -43,6 +44,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items, hydrated]);
+
+  useEffect(() => {
+    // 장바구니 방치 알림용 서버 스냅샷 갱신(로그인 회원만 실제로 저장됨). 장바구니 자체의
+    // 원천은 계속 localStorage이므로, 이 호출이 실패해도 쇼핑 흐름에는 영향이 없다.
+    if (!hydrated) return;
+    syncCartActivityAction(
+      items.map((i) => ({ productId: i.productId, name: i.productName, quantity: i.quantity }))
+    ).catch(() => {});
   }, [items, hydrated]);
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">, quantity = 1) => {

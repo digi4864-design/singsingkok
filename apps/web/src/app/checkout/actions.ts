@@ -11,6 +11,7 @@ import {
 import { getStorefrontName } from "@/lib/productDisplay";
 import { notifyAdmins } from "@/lib/push";
 import { formatWon } from "@/lib/format";
+import { clearCartActivity } from "@/lib/cartActivity";
 
 export interface CheckoutItemInput {
   productOptionId: string;
@@ -149,6 +150,10 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
     `${input.recipientName}님 · ${formatWon(totalAmount)} · ${lineItems[0].productName}${lineItems.length > 1 ? ` 외 ${lineItems.length - 1}건` : ""}`,
     `/admin/orders/${order.id}`
   );
+
+  if (session?.user) {
+    await clearCartActivity(session.user.id).catch(() => {});
+  }
 
   if (input.saveAddress && session?.user) {
     const existingCount = await prisma.address.count({ where: { userId: session.user.id } });

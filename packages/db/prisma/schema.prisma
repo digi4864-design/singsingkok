@@ -217,7 +217,21 @@ model User {
   addresses     Address[]
   pushSubscriptions PushSubscription[]
   restockSubscriptions RestockSubscription[]
+  cartActivity  CartActivity?
   createdAt     DateTime  @default(now())
+}
+
+// 장바구니 자체는 여전히 브라우저(localStorage)에만 저장된다(결제 흐름을 건드리지 않기 위함).
+// 이 모델은 로그인 회원이 장바구니를 담아두고 방치했을 때 리마인드 푸시를 보내기 위한
+// 가벼운 스냅샷일 뿐이다 - 실제 재고/가격의 원천이 아니므로 상품과 관계를 맺지 않고
+// 문구 생성에 필요한 최소 정보만 JSON으로 들고 있는다.
+model CartActivity {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String    @unique
+  itemsJson  Json      // [{ productId, name, quantity }] 스냅샷 - 리마인드 문구 생성용
+  remindedAt DateTime? // 리마인드 발송 시각(중복 발송 방지). 장바구니가 바뀌면 다시 null로 초기화됨
+  updatedAt  DateTime  @updatedAt
 }
 
 // 관리자 기기의 웹 푸시 구독 정보. 신규가입/신규주문 발생 시 여기 등록된 기기로 알림을 보낸다.
