@@ -170,11 +170,13 @@ export async function findProductDriveImages(
   productName: string,
   categoryHint?: string
 ): Promise<DriveMatchResult> {
-  const categories = categoryHint
-    ? [await resolveCategoryFolder(rootFolderId, categoryHint)].filter(Boolean)
-    : [];
-  const searchSpace = categories.length
-    ? (categories as DriveFile[])
+  // categoryHint가 있는데 드라이브에서 그 카테고리 폴더를 못 찾았다면, 전체 카테고리를 다시
+  // 뒤지는 대신 매칭 실패로 처리한다. 예전엔 이럴 때 전체 카테고리로 폴백했는데, 그러면
+  // 카테고리를 안다는 정보 자체가 무의미해지고 서로 다른 카테고리 폴더끼리 우연히 같은
+  // 단어로 잘못 매칭되는 사고(가공식품 "암꽃게장"이 수산물 "꽃게" 생물 사진을 가져온 사고)가
+  // 재발한다. categoryHint가 아예 없을 때만(최고집 검색 자체가 실패한 경우 등) 전체 카테고리를 뒤진다.
+  const searchSpace = categoryHint
+    ? [await resolveCategoryFolder(rootFolderId, categoryHint)].filter((f): f is DriveFile => Boolean(f))
     : (await getRootCategories(rootFolderId)).filter(isFolder);
 
   for (const categoryFolder of searchSpace) {
