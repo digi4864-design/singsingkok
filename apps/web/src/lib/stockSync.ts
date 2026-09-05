@@ -3,7 +3,10 @@ import { fetchChoigozipStockInfo, rehostInlineDescriptionImages } from "@farm-ma
 import { deactivateFullySoldOutProducts } from "./catalogMaintenance";
 import { notifyRestockSubscribers } from "./push";
 
-const CONCURRENCY = 5;
+// 설명에 박힌 이미지 재호스팅(압축+업로드)이 추가되면서 상품당 메모리 사용량이 커졌다.
+// 동시성 5로 큰 이미지 여러 개를 한꺼번에 처리하면 서버리스 함수 메모리 한도에 걸려
+// 재호스팅이 조용히 실패하는 경우가 실제로 있었다(감자탕/레몬/메론 등 2~9MB급 설명들).
+const CONCURRENCY = 2;
 // 최고집 공개 API가 가끔 응답이 없거나 느릴 때, fetch 자체엔 기본 타임아웃이 없어서 동시성
 // 슬롯 하나가 무한정 멈춰있을 수 있다(실제로 이 때문에 8/29에 대량 등록된 상품 중 100개
 // 이상이 여러 날 동안 계속 상세설명을 못 받아온 사고가 있었음 - 뒤쪽 상품일수록 앞의 느린
