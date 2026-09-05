@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { runImageResyncBatch } from "@/lib/imageResync";
-import { runStockAndDescriptionSync } from "@/lib/stockSync";
 import { runReviewReminderBatch } from "@/lib/reviewReminder";
 import { runCartAbandonmentReminderBatch } from "@/lib/cartReminder";
 
@@ -8,12 +7,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // 매일 새벽 자동으로 실행되는 동기화(vercel.json의 crons 설정 참고):
-// 1) 구글 드라이브/최고집 공개 API로 썸네일·상세이미지·카테고리가 비어있는 상품만 채운다
-//    (이미 값이 있으면, 그게 수동 등록이든 자동 등록이든 절대 건드리지 않는다).
-// 2) 최고집 공개 API로 옵션별 품절 여부와 상품 설명/공지사항을 최신 상태로 맞추고,
-//    모든 옵션이 품절인 상품은 자동으로 비공개 전환한다.
+// 구글 드라이브/최고집 공개 API로 썸네일·상세이미지·카테고리가 비어있는 상품만 채운다
+// (이미 값이 있으면, 그게 수동 등록이든 자동 등록이든 절대 건드리지 않는다).
 // Vercel Cron이 아닌 외부에서 함부로 호출하지 못하도록 CRON_SECRET으로 보호한다.
-const IMAGE_RESYNC_TIME_BUDGET_MS = 180_000;
+//
+// 재고/상세설명 동기화(runStockAndDescriptionSync)는 예전엔 이 함수 안에서 이미지
+// 동기화 다음에 이어서 실행됐는데, 같은 300초 제한을 나눠 쓰다 보니 상품이 많을 때
+// 뒤쪽 상품들이 며칠씩 갱신 안 되는 문제가 있어(2026-09-06 발견) /api/cron/stock-sync로
+// 분리했다 - 각자 독립된 300초 예산을 갖는다.
+const IMAGE_RESYNC_TIME_BUDGET_MS = 250_000;
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -34,11 +36,6 @@ export async function GET(request: Request) {
     imageBatches.push(result);
     if (result.remaining === 0) break;
   }
-
-  const stockSummary = await runStockAndDescriptionSync().catch((err) => {
-    console.error("재고/설명 동기화 실패:", err);
-    return null;
-  });
 
   const reviewReminderSummary = await runReviewReminderBatch().catch((err) => {
     console.error("리뷰 리마인드 발송 실패:", err);
@@ -63,7 +60,6 @@ export async function GET(request: Request) {
     ok: true,
     durationMs: Date.now() - startedAt,
     imageSync: { ...imageSummary, batches: imageBatches.length },
-    stockSync: stockSummary,
     reviewReminder: reviewReminderSummary,
     cartReminder: cartReminderSummary,
   });

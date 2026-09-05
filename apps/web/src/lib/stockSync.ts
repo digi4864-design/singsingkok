@@ -4,6 +4,12 @@ import { deactivateFullySoldOutProducts } from "./catalogMaintenance";
 import { notifyRestockSubscribers } from "./push";
 
 const CONCURRENCY = 5;
+// 최고집 공개 API가 가끔 응답이 없거나 느릴 때, fetch 자체엔 기본 타임아웃이 없어서 동시성
+// 슬롯 하나가 무한정 멈춰있을 수 있다(실제로 이 때문에 8/29에 대량 등록된 상품 중 100개
+// 이상이 여러 날 동안 계속 상세설명을 못 받아온 사고가 있었음 - 뒤쪽 상품일수록 앞의 느린
+// 요청들 때문에 함수 실행시간 제한 내에 차례가 오지 않았던 것으로 추정). 상품 하나당 최대
+// 대기 시간을 둬서 느린 상품 하나가 전체 배치를 막지 않도록 한다.
+const PER_PRODUCT_TIMEOUT_MS = 15_000;
 
 async function mapWithConcurrency<T>(
   items: T[],
@@ -20,6 +26,13 @@ async function mapWithConcurrency<T>(
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`시간 초과: ${label}`)), ms)),
+  ]);
+}
+
 export interface StockSyncSummary {
   checked: number;
   matched: number;
@@ -31,6 +44,9 @@ export interface StockSyncSummary {
 // 이미지/썸네일은 절대 건드리지 않는다(그건 runImageResyncBatch의 역할이고, 이미 값이
 // 채워진 이미지는 그쪽에서도 건드리지 않는다) - 이 함수는 재고 상태와 텍스트 설명만 다룬다.
 export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
+  // updatedAt 오름차순 = "가장 오래 전에 갱신됐거나 한 번도 갱신되지 않은" 상품부터 처리한다.
+  // 배치가 시간 제한으로 도중에 끊기더라도, 오늘 처리 못한 상품이 내일은 맨 앞으로 와서
+  // 특정 상품만 계속 뒤로 밀려 영영 갱신되지 않는 일이 없도록 한다.
   const products = await prisma.product.findMany({
     select: {
       id: true,
@@ -38,13 +54,18 @@ export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
       isActive: true,
       options: { select: { id: true, optionName: true, isAvailable: true } },
     },
+    orderBy: { updatedAt: "asc" },
   });
 
   let matched = 0;
   let optionsUpdated = 0;
 
   await mapWithConcurrency(products, CONCURRENCY, async (product) => {
-    const info = await fetchChoigozipStockInfo(product.name).catch((err) => {
+    const info = await withTimeout(
+      fetchChoigozipStockInfo(product.name),
+      PER_PRODUCT_TIMEOUT_MS,
+      product.name
+    ).catch((err) => {
       console.error(`최고집 재고 조회 실패 (${product.name}):`, err);
       return null;
     });

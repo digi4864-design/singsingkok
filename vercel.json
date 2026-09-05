@@ -5,6 +5,10 @@
       "schedule": "30 22 * * *"
     },
     {
+      "path": "/api/cron/stock-sync",
+      "schedule": "35 22 * * *"
+    },
+    {
       "path": "/api/cron/publish-briefing",
       "schedule": "55 22 * * *"
     }
