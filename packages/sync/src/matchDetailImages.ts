@@ -44,11 +44,18 @@ async function resolveCategoryFolder(
   return undefined;
 }
 
+// 폴더명이 한 글자짜리("꿀" 등)면 상품명에 그 글자가 우연히 들어있기만 해도(예: "꿀고구마"의
+// "꿀") 부분일치로 걸려서 완전히 다른 상품(벌꿀)의 사진이 매칭되는 사고가 실제로 있었다
+// (해남 햇 꿀고구마가 천연벌꿀 사진으로 노출된 사례). 실제 품종 폴더명은 항상 2글자 이상이므로
+// 최소 길이를 둬서 이런 우연한 한 글자 매칭을 배제한다.
+const MIN_FOLDER_NAME_LENGTH = 2;
+
 function pickBestMatch(folders: DriveFile[], productName: string): DriveFile | undefined {
   const exact = folders.find((f) => f.name === productName);
   if (exact) return exact;
 
   const candidates = folders
+    .filter((f) => f.name.length >= MIN_FOLDER_NAME_LENGTH)
     .filter((f) => productName.includes(f.name) || f.name.includes(productName))
     .sort((a, b) => b.name.length - a.name.length);
   return candidates[0];
@@ -76,6 +83,7 @@ async function findVarietyFolder(
   if (exact) return exact;
 
   const partialCandidates = topLevel
+    .filter((f) => f.name.length >= MIN_FOLDER_NAME_LENGTH)
     .filter((f) => productName.includes(f.name) || f.name.includes(productName))
     .sort((a, b) => b.name.length - a.name.length);
 
