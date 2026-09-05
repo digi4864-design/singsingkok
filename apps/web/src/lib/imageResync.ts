@@ -56,7 +56,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 const NEEDS_SYNC_WHERE = {
-  OR: [{ thumbnailUrl: null }, { images: { isEmpty: true } }, { categoryId: null }],
+  OR: [
+    { thumbnailUrl: null },
+    { images: { isEmpty: true } },
+    { categoryId: null },
+    // 최고집 폴백으로 사진을 1장만 확보한 상품도 후보에 포함시켜, 구글드라이브에 더 나은
+    // 사진(4~5장)이 있는지 다시 확인할 기회를 준다.
+    { thumbnailSourceKey: { startsWith: "choigozip:" } },
+  ],
 };
 
 /**
@@ -86,7 +93,15 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
   // 뒤로 밀려나고, 아직 안 건드린 상품이 먼저 시도된다(같은 실패 상품만 무한 반복되는 것 방지).
   const products = await prisma.product.findMany({
     where: NEEDS_SYNC_WHERE,
-    select: { id: true, name: true, thumbnailUrl: true, images: true, categoryId: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      thumbnailUrl: true,
+      thumbnailSourceKey: true,
+      images: true,
+      categoryId: true,
+      isActive: true,
+    },
     orderBy: { updatedAt: "asc" },
     take: batchSize,
   });
@@ -96,7 +111,15 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
   let failed = 0;
 
   await mapWithConcurrency(products, CONCURRENCY, async (product) => {
-    const needsThumbnail = !product.thumbnailUrl;
+    // 최고집 공개 검색 API 폴백(아래 157번째 줄 부근)은 사진을 딱 1장만 가져올 수 있다.
+    // 그 1장짜리 임시 사진이 먼저 붙어버리면 thumbnailUrl이 채워진 것으로 보여서, 실제로는
+    // 구글드라이브에 4~5장짜리 제대로 된 사진 폴더가 있어도 다시는 확인하지 않는 문제가
+    // 있었다(실제 사례: "태추단감" - 드라이브엔 사진 4장+상세페이지가 있었는데 최고집
+    // 폴백 1장짜리로 막혀서 영영 못 가져왔음). 관리자가 직접 올린 사진(thumbnailSourceKey
+    // 없음)이나 이미 드라이브에서 제대로 가져온 사진은 그대로 두고, 최고집 폴백 1장짜리일
+    // 때만 드라이브에 더 나은 사진이 있는지 다시 확인한다.
+    const hasOnlyWeakFallbackThumbnail = product.thumbnailSourceKey?.startsWith("choigozip:") ?? false;
+    const needsThumbnail = !product.thumbnailUrl || hasOnlyWeakFallbackThumbnail;
     const needsDetail = product.images.length === 0;
     const needsCategory = !product.categoryId;
 
