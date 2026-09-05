@@ -5,6 +5,7 @@ import {
   uploadImagesToBlob,
   searchChoigozipProductImage,
   uploadChoigozipImageToBlob,
+  searchChoigozipProduct,
 } from "@farm-mall/sync";
 import { UNASSIGNED_CATEGORY_NAME } from "@/lib/categoryRules";
 
@@ -144,8 +145,15 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
     // 실패할 수 있는데, 그렇더라도 아래 최고집 공개 API 폴백은 반드시 시도해야 하므로
     // 이 블록만 별도로 감싼다 - 한 단계가 실패해도 나머지 단계는 계속 진행된다.
     try {
+      // 카테고리 힌트 없이 전체 드라이브를 뒤지면, 서로 다른 카테고리에 같은 단어가 들어간
+      // 폴더끼리 잘못 매칭될 수 있다(실제 사고: 가공식품 "암꽃게장"이 수산물 카테고리의
+      // "꽃게"(생물) 폴더 사진을 가져옴 - 카테고리를 몰라 전체를 다 뒤지다 벌어진 일).
+      // 최고집이 분류해둔 카테고리를 먼저 조회해 같은 카테고리 폴더 안에서만 찾도록 좁힌다.
+      const choigozipHit = await searchChoigozipProduct(product.name).catch(() => null);
+      const categoryHint = choigozipHit?.categoryName ?? undefined;
+
       const match = await withTimeout(
-        findProductDriveImages(rootFolderId, product.name),
+        findProductDriveImages(rootFolderId, product.name, categoryHint),
         PER_PRODUCT_TIMEOUT_MS,
         product.name
       );

@@ -9,6 +9,7 @@ export interface ChoigozipProductListItem {
   publicCode: string;
   name: string;
   imageUrl: string | null;
+  categoryName: string | null;
 }
 
 interface ChoigozipSearchResponse {
