@@ -1,5 +1,5 @@
 import { put } from "@vercel/blob";
-import { compressImage } from "./imageCompress";
+import { compressImage, contentHash } from "./imageCompress";
 import { searchChoigozipProduct, CHOIGOZIP_USER_AGENT } from "./choigozipApi";
 
 const THUMB_MAX_WIDTH = 1200;
@@ -29,7 +29,8 @@ export async function uploadChoigozipImageToBlob(
   const raw = Buffer.from(await res.arrayBuffer());
 
   const { buffer, ext, contentType } = await compressImage(raw, THUMB_MAX_WIDTH);
-  const blob = await put(`products/${pathPrefix}/thumb-1.${ext}`, buffer, {
+  const hash = contentHash(buffer);
+  const blob = await put(`products/${pathPrefix}/thumb-1-${hash}.${ext}`, buffer, {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: true,

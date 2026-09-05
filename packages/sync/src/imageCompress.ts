@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { createHash } from "node:crypto";
 
 export interface CompressedImage {
   buffer: Buffer;
@@ -22,4 +23,14 @@ export async function compressImage(input: Buffer, maxWidth: number): Promise<Co
 
   const buffer = await resized.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
   return { buffer, ext: "jpg", contentType: "image/jpeg" };
+}
+
+// Blob 파일명을 그대로 재사용하면(thumb-1.jpg 등) Vercel Blob의 30일 캐시(Cache-Control:
+// max-age=2592000)를 브라우저/CDN이 그대로 물고 있어서, 내용이 바뀌어도 캐시 기간이 끝날
+// 때까지 예전 사진이 계속 보이는 문제가 실제로 있었다(암꽃게장 상세이미지가 몇 번을 고쳐도
+// 예전 사진으로 보이던 사고). 파일명에 내용 기반 해시를 붙여, 내용이 바뀌면 파일명도 바뀌어
+// 캐시가 자동으로 무효화되게 한다 - 내용이 그대로면 해시도 그대로라 불필요한 재업로드/캐시
+// 무효화는 일어나지 않는다.
+export function contentHash(buffer: Buffer): string {
+  return createHash("sha256").update(buffer).digest("hex").slice(0, 10);
 }

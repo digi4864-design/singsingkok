@@ -1,6 +1,6 @@
 import { put } from "@vercel/blob";
 import { downloadFile, isFolder, listChildren, type DriveFile } from "./drive";
-import { compressImage } from "./imageCompress";
+import { compressImage, contentHash } from "./imageCompress";
 
 const THUMB_MAX_WIDTH = 1200;
 const DETAIL_MAX_WIDTH = 1600;
@@ -217,7 +217,8 @@ export async function uploadImagesToBlob(
     const file = filesToSave[i];
     const raw = await downloadFile(file.id);
     const { buffer, ext, contentType } = await compressImage(raw, maxWidth);
-    const filename = `${prefix}-${i + 1}.${ext}`;
+    const hash = contentHash(buffer);
+    const filename = `${prefix}-${i + 1}-${hash}.${ext}`;
     const blob = await put(`products/${pathPrefix}/${filename}`, buffer, {
       access: "public",
       addRandomSuffix: false,
