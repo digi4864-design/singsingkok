@@ -1,5 +1,5 @@
 import { prisma } from "@farm-mall/db";
-import { fetchChoigozipStockInfo } from "@farm-mall/sync";
+import { fetchChoigozipStockInfo, rehostInlineDescriptionImages } from "@farm-mall/sync";
 import { deactivateFullySoldOutProducts } from "./catalogMaintenance";
 import { notifyRestockSubscribers } from "./push";
 
@@ -72,10 +72,20 @@ export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
     if (!info) return;
     matched++;
 
+    // 최고집 원본 설명에 사진이 base64로 통째로 박혀 들어오는 경우가 있어(상품 하나에 최대
+    // 9MB, 실제 발견: "홈마카세" 9MB 등 40개 상품) 그대로 저장하면 상품 상세페이지 하나가
+    // 몇 MB씩 나가게 된다. 저장 전에 항상 이미지를 우리 저장소로 옮기고 가벼운 URL로 바꾼다.
+    const description = info.description
+      ? await rehostInlineDescriptionImages(info.description, product.id).catch((err) => {
+          console.error(`설명 이미지 재호스팅 실패 (${product.name}):`, err);
+          return info.description;
+        })
+      : info.description;
+
     await prisma.product
       .update({
         where: { id: product.id },
-        data: { description: info.description, supplierNotice: info.partnerNote },
+        data: { description, supplierNotice: info.partnerNote },
       })
       .catch((err) => console.error(`상품 설명 갱신 실패 (${product.name}):`, err));
 

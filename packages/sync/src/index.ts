@@ -7,3 +7,4 @@ export * from "./trackingExcel";
 export * from "./choigozipApi";
 export * from "./choigozipImages";
 export * from "./choigozipStockSync";
+export * from "./rehostDescriptionImages";
