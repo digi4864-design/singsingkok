@@ -6,6 +6,7 @@ import {
   searchChoigozipProductImage,
   uploadChoigozipImageToBlob,
 } from "@farm-mall/sync";
+import { UNASSIGNED_CATEGORY_NAME } from "@/lib/categoryRules";
 
 export interface ResyncResult {
   ok: boolean;
@@ -63,6 +64,9 @@ const NEEDS_SYNC_WHERE = {
     // 최고집 폴백으로 사진을 1장만 확보한 상품도 후보에 포함시켜, 구글드라이브에 더 나은
     // 사진(4~5장)이 있는지 다시 확인할 기회를 준다.
     { thumbnailSourceKey: { startsWith: "choigozip:" } },
+    // "미지정"(엑셀 업로드/관리자 일괄정리 시 붙는 임시 카테고리)도 categoryId가 채워져
+    // 있다는 이유로 영영 재시도 안 되는 문제가 있었다 - 다시 후보에 포함시킨다.
+    { category: { name: UNASSIGNED_CATEGORY_NAME } },
   ],
 };
 
@@ -100,6 +104,7 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
       thumbnailSourceKey: true,
       images: true,
       categoryId: true,
+      category: { select: { name: true } },
       isActive: true,
     },
     orderBy: { updatedAt: "asc" },
@@ -121,7 +126,9 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
     const hasOnlyWeakFallbackThumbnail = product.thumbnailSourceKey?.startsWith("choigozip:") ?? false;
     const needsThumbnail = !product.thumbnailUrl || hasOnlyWeakFallbackThumbnail;
     const needsDetail = product.images.length === 0;
-    const needsCategory = !product.categoryId;
+    // "미지정"으로 일괄배정된 상품도, 진짜 카테고리를 찾을 기회를 다시 준다(그렇지 않으면
+    // categoryId가 채워져 있다는 이유만으로 영영 "미지정"에 갇히게 됨).
+    const needsCategory = !product.categoryId || product.category?.name === UNASSIGNED_CATEGORY_NAME;
 
     let hadError = false;
     const data: {
