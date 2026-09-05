@@ -154,6 +154,11 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
       // 뒤지지 않고 건너뛴다 - 안전한 최고집 단일 이미지 폴백으로만 처리한다.
       const choigozipHit = await searchChoigozipProduct(product.name).catch(() => null);
       const categoryHint = choigozipHit?.categoryName ?? undefined;
+      // 최고집 categoryName엔 장식용 이모지가 붙어 있다(예: "🥩축산🥩"). 순수 카테고리명만
+      // 추려서, 드라이브에 사진 폴더가 없는 상품(아래 categoryFolder 매칭 실패)도 카테고리는
+      // 배정받을 수 있게 한다 - 예전엔 사진 폴더를 찾은 상품만 카테고리를 받아서, 드라이브에
+      // 전용 폴더가 없는 품목(고기/수산물 등)은 사진이 있든 없든 "미지정"에 영영 갇혔다.
+      const cleanCategoryHint = categoryHint?.replace(/[^가-힣\s]/g, "").trim() || undefined;
 
       const match = categoryHint
         ? await withTimeout(
@@ -181,11 +186,12 @@ export async function runImageResyncBatch(batchSize = 15): Promise<ResyncResult>
         if (saved.length > 0) data.images = saved;
       }
 
-      if (needsCategory && match.categoryFolder) {
+      const categoryName = match.categoryFolder ?? cleanCategoryHint;
+      if (needsCategory && categoryName) {
         const category = await prisma.category.upsert({
-          where: { name: match.categoryFolder },
+          where: { name: categoryName },
           update: {},
-          create: { name: match.categoryFolder, slug: slugify(match.categoryFolder) },
+          create: { name: categoryName, slug: slugify(categoryName) },
         });
         data.categoryId = category.id;
       }
