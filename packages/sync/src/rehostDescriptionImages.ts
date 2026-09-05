@@ -65,23 +65,35 @@ async function uploadDataUriImage(
   }
 }
 
+export interface RehostResult {
+  html: string;
+  // 재호스팅에 성공한 이미지들의 URL(등장 순서대로). 최고집은 실제 "상세페이지" 컷을
+  // 사진이 아니라 설명란에 통째로 박힌 이미지로만 제공하는 경우가 많다(예: 머스크 메론,
+  // 암꽃게장) - 구글드라이브에 해당 상품 사진폴더가 없으면 상품 상세페이지에 넣을 이미지가
+  // 이것 말고는 없다. 호출부(stockSync)가 이 URL들을 상품의 상세이미지 갤러리를 채우는
+  // 용도로 재사용할 수 있도록 별도로 돌려준다.
+  imageUrls: string[];
+}
+
 /**
  * 상세설명 HTML 안에 base64로 박혀 들어온 이미지를 찾아 Vercel Blob에 업로드하고,
  * 그 자리를 가벼운 URL 참조로 바꿔치기한다. base64 이미지가 없으면 원본을 그대로 반환한다
  * (매 상품마다 정규식 스캔은 하지만, 실제 치환/업로드는 필요할 때만 발생).
  */
-export async function rehostInlineDescriptionImages(html: string, productId: string): Promise<string> {
-  if (!html || !html.includes("base64,")) return html;
+export async function rehostInlineDescriptionImages(html: string, productId: string): Promise<RehostResult> {
+  if (!html || !html.includes("base64,")) return { html, imageUrls: [] };
 
   const matches = [...html.matchAll(DATA_URI_IMG_REGEX)];
-  if (matches.length === 0) return html;
+  if (matches.length === 0) return { html, imageUrls: [] };
 
   let result = html;
   let index = 0;
+  const imageUrls: string[] = [];
   for (const match of matches) {
     const [full, beforeAttrs, mimeType, base64Data, afterAttrs] = match;
     try {
       const url = await uploadDataUriImage(mimeType, base64Data, productId, index++);
+      imageUrls.push(url);
       result = result.replace(full, `<img${beforeAttrs} src="${url}"${afterAttrs}>`);
     } catch (err) {
       console.error(`설명 이미지 재호스팅 완전 실패 (상품 ${productId}):`, err);
@@ -90,5 +102,5 @@ export async function rehostInlineDescriptionImages(html: string, productId: str
       result = result.replace(full, "");
     }
   }
-  return result;
+  return { html: result, imageUrls };
 }

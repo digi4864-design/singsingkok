@@ -50,13 +50,26 @@ async function resolveCategoryFolder(
 // 최소 길이를 둬서 이런 우연한 한 글자 매칭을 배제한다.
 const MIN_FOLDER_NAME_LENGTH = 2;
 
+// 우리 상품명엔 "[제휴A]", "[은하수산]", "[9/14일부터 순차출고]" 같은 내부 공급처/출고
+// 태그가 붙어 있지만, 드라이브 폴더명은 순수 품종명뿐이라 태그가 섞여 있으면 부분일치조차
+// 안 된다. 또한 "머스크 메론"(상품명) vs "머스크메론"(드라이브 폴더명)처럼 똑같은 품종인데
+// 띄어쓰기만 다른 경우도 실제로 있었다(머스크 메론 A가 상세페이지 없이 노출된 사고). 두
+// 문자열 다 이 정규화를 거친 뒤 비교해서 이런 표기 차이로 매칭이 실패하는 일을 없앤다.
+function normalizeForMatch(name: string): string {
+  return name.replace(/\[[^\]]*\]/g, "").replace(/\s+/g, "");
+}
+
 function pickBestMatch(folders: DriveFile[], productName: string): DriveFile | undefined {
-  const exact = folders.find((f) => f.name === productName);
+  const normalizedProduct = normalizeForMatch(productName);
+  const exact = folders.find((f) => normalizeForMatch(f.name) === normalizedProduct);
   if (exact) return exact;
 
   const candidates = folders
-    .filter((f) => f.name.length >= MIN_FOLDER_NAME_LENGTH)
-    .filter((f) => productName.includes(f.name) || f.name.includes(productName))
+    .filter((f) => normalizeForMatch(f.name).length >= MIN_FOLDER_NAME_LENGTH)
+    .filter((f) => {
+      const normalizedFolder = normalizeForMatch(f.name);
+      return normalizedProduct.includes(normalizedFolder) || normalizedFolder.includes(normalizedProduct);
+    })
     .sort((a, b) => b.name.length - a.name.length);
   return candidates[0];
 }
@@ -78,13 +91,17 @@ async function findVarietyFolder(
   productName: string
 ): Promise<DriveFile | undefined> {
   const topLevel = (await getFolderChildren(categoryFolderId)).filter(isFolder);
+  const normalizedProduct = normalizeForMatch(productName);
 
-  const exact = topLevel.find((f) => f.name === productName);
+  const exact = topLevel.find((f) => normalizeForMatch(f.name) === normalizedProduct);
   if (exact) return exact;
 
   const partialCandidates = topLevel
-    .filter((f) => f.name.length >= MIN_FOLDER_NAME_LENGTH)
-    .filter((f) => productName.includes(f.name) || f.name.includes(productName))
+    .filter((f) => normalizeForMatch(f.name).length >= MIN_FOLDER_NAME_LENGTH)
+    .filter((f) => {
+      const normalizedFolder = normalizeForMatch(f.name);
+      return normalizedProduct.includes(normalizedFolder) || normalizedFolder.includes(normalizedProduct);
+    })
     .sort((a, b) => b.name.length - a.name.length);
 
   // 부분일치 후보 중 실제로 사진/상세페이지를 가진 "리프" 폴더만 채택한다.
@@ -96,7 +113,7 @@ async function findVarietyFolder(
   // 그룹 폴더 하위에서 정확히 일치하는 품종 폴더를 찾는다.
   for (const group of topLevel) {
     const subFolders = (await getFolderChildren(group.id)).filter(isFolder);
-    const nestedExact = subFolders.find((f) => f.name === productName);
+    const nestedExact = subFolders.find((f) => normalizeForMatch(f.name) === normalizedProduct);
     if (nestedExact) return nestedExact;
   }
 
