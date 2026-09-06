@@ -19,11 +19,40 @@ export interface OverlayBadge {
 
 const BAND_HEIGHT_RATIO = 0.38;
 const SIDE_PADDING_RATIO = 0.045;
+const MIN_FONT_SCALE = 0.55; // 원래 크기의 55%까지만 줄인다(그 밑으로는 가독성이 떨어짐)
 
 // 이모지는 Pretendard에 글리프가 없어 빈 네모(tofu)로 깨져 보인다 - 사진 위 문구에서는
 // 제거한다(캡션 쪽 이모지는 인스타그램이 직접 렌더링하므로 문제 없음).
 function stripEmoji(text: string): string {
   return text.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+}
+
+type Ctx2D = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
+
+// 상품명이 길면("[제휴C] 축산시리즈(뒷다리살/1등급한우/1+돼지고기/돈찜갈비)" 같은 실제 사례)
+// 문구가 사진 폭을 넘어가 오른쪽이 통째로 잘려 보이는(가격까지 안 보이는) 문제가 있었다.
+// 1) 폰트 크기를 최소치까지 줄여보고, 2) 그래도 안 들어가면 말줄임표로 자른다.
+function fitText(
+  ctx: Ctx2D,
+  text: string,
+  maxWidth: number,
+  weight: number,
+  baseSize: number
+): { text: string; size: number } {
+  let size = baseSize;
+  const minSize = Math.round(baseSize * MIN_FONT_SCALE);
+  ctx.font = `${weight} ${size}px "${FONT_FAMILY}"`;
+  while (ctx.measureText(text).width > maxWidth && size > minSize) {
+    size -= 1;
+    ctx.font = `${weight} ${size}px "${FONT_FAMILY}"`;
+  }
+  if (ctx.measureText(text).width <= maxWidth) return { text, size };
+
+  let truncated = text;
+  while (truncated.length > 1 && ctx.measureText(truncated + "…").width > maxWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return { text: `${truncated}…`, size };
 }
 
 /**
@@ -50,22 +79,26 @@ export async function renderInstagramOverlay(imageBuffer: Buffer, badge: Overlay
   ctx.fillRect(0, height - bandHeight, width, bandHeight);
 
   const x = width * SIDE_PADDING_RATIO;
-  const headline = stripEmoji(badge.headline);
-  const subline = badge.subline ? stripEmoji(badge.subline) : "";
+  const maxTextWidth = width - x * 2;
+  const headlineRaw = stripEmoji(badge.headline);
+  const sublineRaw = badge.subline ? stripEmoji(badge.subline) : "";
 
-  const headlineSize = Math.round(width * 0.068);
-  const sublineSize = Math.round(width * 0.038);
+  const headlineBaseSize = Math.round(width * 0.068);
+  const sublineBaseSize = Math.round(width * 0.038);
 
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${headlineSize}px "${FONT_FAMILY}"`;
-  const headlineY = subline ? height - sublineSize * 2.1 : height - sublineSize * 1.1;
-  ctx.fillText(headline, x, headlineY);
 
-  if (subline) {
-    ctx.font = `500 ${sublineSize}px "${FONT_FAMILY}"`;
+  const headlineFit = fitText(ctx, headlineRaw, maxTextWidth, 700, headlineBaseSize);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${headlineFit.size}px "${FONT_FAMILY}"`;
+  const headlineY = sublineRaw ? height - sublineBaseSize * 2.1 : height - sublineBaseSize * 1.1;
+  ctx.fillText(headlineFit.text, x, headlineY);
+
+  if (sublineRaw) {
+    const sublineFit = fitText(ctx, sublineRaw, maxTextWidth, 500, sublineBaseSize);
+    ctx.font = `500 ${sublineFit.size}px "${FONT_FAMILY}"`;
     ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.fillText(subline, x, height - sublineSize * 0.75);
+    ctx.fillText(sublineFit.text, x, height - sublineBaseSize * 0.75);
   }
 
   return canvas.encode("jpeg", 90);
