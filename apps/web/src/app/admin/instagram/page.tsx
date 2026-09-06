@@ -1,6 +1,6 @@
 import { prisma } from "@farm-mall/db";
 import { getStorefrontName } from "@/lib/productDisplay";
-import { buildDefaultCaption } from "@/lib/instagramCaption";
+import { buildDefaultCaption, buildDefaultOverlayBadge } from "@/lib/instagramCaption";
 import { InstagramPostCard } from "./InstagramPostCard";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +68,7 @@ export default async function AdminInstagramPage() {
                 thumbnailUrl={p.thumbnailUrl!}
                 imageCount={p.thumbnailImages.length || 1}
                 defaultCaption={buildDefaultCaption(p, minPrice(p.options), true)}
+                defaultBadge={buildDefaultOverlayBadge(p, minPrice(p.options), true)}
               />
             ))}
           </div>
@@ -88,6 +89,7 @@ export default async function AdminInstagramPage() {
                 thumbnailUrl={p.thumbnailUrl!}
                 imageCount={p.thumbnailImages.length || 1}
                 defaultCaption={buildDefaultCaption(p, minPrice(p.options), false)}
+                defaultBadge={buildDefaultOverlayBadge(p, minPrice(p.options), false)}
               />
             ))}
           </div>

@@ -65,3 +65,24 @@ export function buildDefaultCaption(product: CaptionProduct, minPrice: number | 
 
   return `${badge}\n\n${name}${priceLine}${careLine}\n\n산지에서 바로 받아보는 신선함, 싱싱콕에서 만나보세요 🥬\n🔗 ${productUrl}\n👉 더 많은 상품은 프로필 링크에서 만나보세요\n\n${hashtags}`;
 }
+
+export interface OverlayBadgeDraft {
+  headline: string;
+  subline: string;
+}
+
+// 사진 위에 합성될 문구의 기본 초안. 캡션과 같은 상황 판단(신상품/베스트)을 쓰되, 사진에
+// 얹는 문구는 짧고 굵게 - 캡션처럼 길게 늘어놓지 않는다(이모지는 렌더링 시 제거되므로 여기선
+// 넣지 않는다).
+export function buildDefaultOverlayBadge(
+  product: CaptionProduct,
+  minPrice: number | null,
+  isNew: boolean
+): OverlayBadgeDraft {
+  const name = getStorefrontName(product);
+  const headline = isNew ? "NEW 입고" : "이달의 BEST";
+  const priceText = minPrice != null ? `${formatWon(minPrice)}부터` : null;
+  const subline = priceText ? `${name} · ${priceText}` : name;
+
+  return { headline, subline };
+}
