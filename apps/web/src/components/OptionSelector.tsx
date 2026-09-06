@@ -13,6 +13,7 @@ export interface OptionData {
   price: number;
   compliancePrice?: number | null;
   isAvailable: boolean;
+  limitedEvent?: { label: string; total: number; remaining: number } | null;
 }
 
 export function OptionSelector({
@@ -94,6 +95,15 @@ export function OptionSelector({
           ))}
         </select>
       </div>
+
+      {selected?.limitedEvent && (
+        <p className="text-xs font-semibold text-red-600 mb-1">
+          🔥 {selected.limitedEvent.label} ·{" "}
+          {selected.limitedEvent.remaining > 0
+            ? `${selected.limitedEvent.remaining}/${selected.limitedEvent.total}개 남음`
+            : "선착순 마감"}
+        </p>
+      )}
 
       {selected && (
         <div>

@@ -175,6 +175,13 @@ model ProductOption {
   isPriceManual   Boolean     @default(false) // true면 재업로드 시 판매가를 자동 재계산하지 않고 유지
   compliancePrice Int?                // 준수판매가 (공급사가 지정한 최소 판매가, 있는 경우)
   isAvailable     Boolean     @default(true) // 판매상태 == "판매중"
+  // 수량한정 이벤트: 가격을 부풀렸다 할인하는 방식 대신, 진짜 수량을 정해두고 소진되면
+  // 끝나는 방식으로 긴급성을 만든다. limitedEventTotal이 null이면 이벤트 아님.
+  // 남은 수량은 저장해두지 않고, limitedEventStartsAt 이후 실제 주문량을 집계해서 계산한다
+  // (getLimitedEventStatus 참고) - 결제 흐름에 손대지 않아 기존 주문 로직에 영향이 없다.
+  limitedEventTotal    Int?
+  limitedEventLabel    String?
+  limitedEventStartsAt DateTime?
   supplierCourier String?             // 택배사
   outboundType    String?             // 출고지 (위탁/센터)
   orderCutoff     String?             // 발주마감시간

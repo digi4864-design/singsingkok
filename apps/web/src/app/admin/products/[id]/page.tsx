@@ -2,11 +2,14 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
+import { getLimitedEventStatus } from "@/lib/limitedEvent";
 import {
   updateOptionPriceAction,
   resetOptionPriceAction,
   removeDetailImageAction,
   removeThumbnailImageAction,
+  setLimitedEventAction,
+  clearLimitedEventAction,
 } from "./actions";
 import { ThumbnailUploadForm } from "./ThumbnailUploadForm";
 import { DetailImagesUploadForm } from "./DetailImagesUploadForm";
@@ -29,6 +32,10 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
   ]);
 
   if (!product) notFound();
+
+  const limitedEventStatuses = await Promise.all(
+    product.options.map((o) => getLimitedEventStatus(o))
+  );
 
   return (
     <div className="max-w-3xl">
@@ -131,12 +138,14 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
             <th className="text-left px-4 py-2 font-medium">판매가</th>
             <th className="text-left px-4 py-2 font-medium">상태</th>
             <th className="px-4 py-2"></th>
+            <th className="text-left px-4 py-2 font-medium">수량한정 이벤트</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {product.options.map((o) => {
+          {product.options.map((o, i) => {
             const belowCompliance =
               o.compliancePrice != null && o.sellingPrice < o.compliancePrice;
+            const eventStatus = limitedEventStatuses[i];
             return (
               <tr key={o.id}>
                 <td className="px-4 py-2">{o.optionName}</td>
@@ -181,6 +190,42 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
                 </td>
                 <td className="px-4 py-2 text-xs text-gray-400">
                   {o.isPriceManual ? "수동설정" : "자동계산"}
+                </td>
+                <td className="px-4 py-2">
+                  {eventStatus ? (
+                    <div className="text-xs">
+                      <p className="font-medium text-red-600">
+                        🔥 {eventStatus.label} · {eventStatus.remaining}/{eventStatus.total}개 남음
+                      </p>
+                      <form action={clearLimitedEventAction} className="mt-1">
+                        <input type="hidden" name="optionId" value={o.id} />
+                        <input type="hidden" name="productId" value={product.id} />
+                        <button type="submit" className="text-gray-400 hover:underline">
+                          이벤트 종료
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <form action={setLimitedEventAction} className="flex items-center gap-1 text-xs">
+                      <input type="hidden" name="optionId" value={o.id} />
+                      <input type="hidden" name="productId" value={product.id} />
+                      <input
+                        name="limitedEventLabel"
+                        placeholder="추석 한정특가"
+                        className="w-24 border border-gray-300 rounded px-1.5 py-1"
+                      />
+                      <input
+                        name="limitedEventTotal"
+                        type="number"
+                        placeholder="수량"
+                        min={1}
+                        className="w-14 border border-gray-300 rounded px-1.5 py-1"
+                      />
+                      <button type="submit" className="text-primary hover:underline shrink-0">
+                        시작
+                      </button>
+                    </form>
+                  )}
                 </td>
               </tr>
             );

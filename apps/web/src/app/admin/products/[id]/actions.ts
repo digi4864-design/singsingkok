@@ -84,6 +84,44 @@ export async function updateOptionPriceAction(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function setLimitedEventAction(formData: FormData) {
+  await requireAdmin();
+  const optionId = String(formData.get("optionId"));
+  const productId = String(formData.get("productId"));
+  const total = Number(formData.get("limitedEventTotal"));
+  const label = String(formData.get("limitedEventLabel") ?? "").trim();
+
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error("한정 수량을 1개 이상 입력해주세요.");
+  }
+
+  await prisma.productOption.update({
+    where: { id: optionId },
+    data: {
+      limitedEventTotal: total,
+      limitedEventLabel: label || "수량한정 특가",
+      limitedEventStartsAt: new Date(),
+    },
+  });
+
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath(`/products/${productId}`);
+}
+
+export async function clearLimitedEventAction(formData: FormData) {
+  await requireAdmin();
+  const optionId = String(formData.get("optionId"));
+  const productId = String(formData.get("productId"));
+
+  await prisma.productOption.update({
+    where: { id: optionId },
+    data: { limitedEventTotal: null, limitedEventLabel: null, limitedEventStartsAt: null },
+  });
+
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath(`/products/${productId}`);
+}
+
 export async function resetOptionPriceAction(formData: FormData) {
   await requireAdmin();
   const optionId = String(formData.get("optionId"));

@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
 import { RestockSubscribeButton } from "@/components/RestockSubscribeButton";
 import { formatWon } from "@/lib/format";
+import { getLimitedEventStatus } from "@/lib/limitedEvent";
 
 // 카카오톡/문자/인스타그램 바이오 링크 등으로 상품이 공유될 때 실제 상품 사진·이름·가격이
 // 미리보기 카드에 뜨도록 한다(레이아웃 기본값은 사이트 대표 이미지라, 여기서 상품별로 덮어쓴다).
@@ -101,6 +102,9 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
         ? [product.thumbnailUrl]
         : [];
   const hasAvailableOption = product.options.some((o) => o.isAvailable);
+  const limitedEventStatuses = await Promise.all(
+    product.options.map((o) => getLimitedEventStatus(o))
+  );
   const displayName = getStorefrontName(product);
   // 최고집에서 매일 자동으로 가져오는 값이라 "<p></p>" 같은 실질적으로 빈 HTML이 들어올 수 있고,
   // 판매자(우리)만 봐야 할 내부 CS 대응 안내문이 섞여 있을 수 있어 걸러낸 뒤 노출한다.
@@ -149,12 +153,13 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
 
           <OptionSelector
             product={{ id: product.id, name: displayName, thumbnailUrl: product.thumbnailUrl }}
-            options={product.options.map((o) => ({
+            options={product.options.map((o, i) => ({
               id: o.id,
               optionName: o.optionName,
               price: o.sellingPrice,
               compliancePrice: o.compliancePrice,
               isAvailable: o.isAvailable,
+              limitedEvent: limitedEventStatuses[i],
             }))}
           />
 
