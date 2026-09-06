@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { getNextTier } from "@/lib/membership";
+import { getStorefrontName } from "@/lib/productDisplay";
+import { REVIEW_REWARD_POINTS } from "@/lib/points";
 import { TierBadge } from "@/components/TierBadge";
 import { ReferralLinkBox } from "./ReferralLinkBox";
 
@@ -31,10 +33,18 @@ export default async function MyPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/mypage");
 
-  const [orders, user, pointTransactions, headersList] = await Promise.all([
+  const [orders, user, pointTransactions, myReviews, headersList] = await Promise.all([
     prisma.order.findMany({
       where: { customerId: session.user.id },
-      include: { items: { include: { shipment: true }, orderBy: { lineNo: "asc" } } },
+      include: {
+        items: {
+          include: {
+            shipment: true,
+            productOption: { select: { product: { select: { id: true, name: true, displayName: true } } } },
+          },
+          orderBy: { lineNo: "asc" },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.user.findUniqueOrThrow({
@@ -46,12 +56,26 @@ export default async function MyPage() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    prisma.review.findMany({ where: { userId: session.user.id }, select: { productId: true } }),
     headers(),
   ]);
   const next = getNextTier(user.totalSpent);
   const host = headersList.get("host") ?? "www.singsingkok.co.kr";
   const protocol = host.includes("localhost") ? "http" : "https";
   const referralUrl = `${protocol}://${host}/signup?ref=${session.user.id}`;
+
+  // 배송완료 됐는데 아직 리뷰를 안 쓴 상품들 - 리뷰는 푸시 알림 구독자에게만 안내되고 있어
+  // (구독률이 낮음) 로그인할 때마다 마이페이지에서도 직접 안내해 리뷰 작성률을 높인다.
+  const reviewedProductIds = new Set(myReviews.map((r) => r.productId));
+  const reviewableProducts = new Map<string, { id: string; name: string; displayName: string | null }>();
+  for (const order of orders) {
+    if (order.status !== "DELIVERED") continue;
+    for (const item of order.items) {
+      const p = item.productOption?.product;
+      if (p && !reviewedProductIds.has(p.id)) reviewableProducts.set(p.id, p);
+    }
+  }
+  const reviewableList = [...reviewableProducts.values()];
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
@@ -96,6 +120,27 @@ export default async function MyPage() {
           <p className="text-xs text-gray-400 mt-1.5">최고 등급이에요! 🎉</p>
         )}
       </div>
+
+      {reviewableList.length > 0 && (
+        <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900 mb-2">
+            ✍️ 리뷰 쓰고 {REVIEW_REWARD_POINTS}P 받으세요!
+          </p>
+          <ul className="space-y-1.5">
+            {reviewableList.map((p) => (
+              <li key={p.id} className="flex items-center justify-between text-sm">
+                <span className="text-amber-800 truncate mr-3">{getStorefrontName(p)}</span>
+                <Link
+                  href={`/products/${p.id}#review`}
+                  className="shrink-0 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-full px-3 py-1"
+                >
+                  리뷰 쓰기
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mb-8 rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">
