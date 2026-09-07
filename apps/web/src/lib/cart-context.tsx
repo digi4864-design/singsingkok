@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { syncCartActivityAction } from "@/lib/cartActivityActions";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 export interface CartItem {
   optionId: string;
@@ -64,6 +65,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         );
       }
       return [...prev, { ...item, quantity }];
+    });
+    trackMetaEvent("AddToCart", {
+      content_ids: [item.productId],
+      content_name: item.productName,
+      value: item.price * quantity,
+      currency: "KRW",
     });
   }, []);
 

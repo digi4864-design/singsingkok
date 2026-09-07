@@ -9,6 +9,7 @@ import { PwaRegister } from "@/components/PwaRegister";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { BottomNav } from "@/components/BottomNav";
 import { Logo } from "@/components/Logo";
+import { MetaPixel } from "@/components/MetaPixel";
 import { prisma } from "@farm-mall/db";
 
 const geistSans = Geist({
@@ -78,6 +79,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <MetaPixel />
         <PwaRegister />
         <CartProvider>
           <InstallPrompt />

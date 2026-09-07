@@ -82,5 +82,5 @@ export async function GET(req: NextRequest) {
   await grantFirstPurchaseCouponIfApplicable(order.customerId, order.id);
   await redeemPointsForOrder(prisma, order);
 
-  return NextResponse.redirect(new URL(`/orders/${order.id}`, req.url));
+  return NextResponse.redirect(new URL(`/orders/${order.id}?purchased=1`, req.url));
 }

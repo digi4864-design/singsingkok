@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
+import { TrackPurchase } from "@/components/TrackPurchase";
 import { getCourierTrackingUrl } from "@/lib/courierTracking";
 import { auth } from "@/lib/auth";
 import { OrderActions } from "./OrderActions";
@@ -77,6 +78,7 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
       <ClearCartOnMount />
+      <TrackPurchase orderId={order.id} value={order.totalAmount} />
       <h1 className="text-xl font-bold text-gray-900 mb-1">주문이 접수되었습니다</h1>
       <p className="text-sm text-gray-500 mb-6">주문번호 {order.orderNo}</p>
 

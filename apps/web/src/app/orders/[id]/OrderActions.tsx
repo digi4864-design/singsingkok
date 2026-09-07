@@ -66,7 +66,7 @@ export function OrderActions({
                     {unreviewed.map((item) => (
                       <Link
                         key={item.productId}
-                        href={`/products/${item.productId}#review`}
+                        href={`/products/${item.productId}/review`}
                         className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover active:scale-[0.98] transition-transform"
                       >
                         <span>{item.productName}</span>
@@ -81,7 +81,7 @@ export function OrderActions({
                   {reviewed.map((item) => (
                     <Link
                       key={item.productId}
-                      href={`/products/${item.productId}#review`}
+                      href={`/products/${item.productId}/review`}
                       className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-400 hover:border-primary hover:text-primary"
                     >
                       ✓ {item.productName} 리뷰 수정하기

@@ -7,6 +7,7 @@ import { OptionSelector } from "@/components/OptionSelector";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
 import { ReviewList } from "@/components/ReviewList";
+import { TrackViewContent } from "@/components/TrackViewContent";
 import { auth } from "@/lib/auth";
 import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
 import { RestockSubscribeButton } from "@/components/RestockSubscribeButton";
@@ -107,6 +108,8 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
     product.options.map((o) => getLimitedEventStatus(o))
   );
   const displayName = getStorefrontName(product);
+  const viewPrices = product.options.map((o) => o.sellingPrice).filter((n) => n > 0);
+  const viewMinPrice = viewPrices.length ? Math.min(...viewPrices) : null;
   // 최고집에서 매일 자동으로 가져오는 값이라 "<p></p>" 같은 실질적으로 빈 HTML이 들어올 수 있고,
   // 판매자(우리)만 봐야 할 내부 CS 대응 안내문이 섞여 있을 수 있어 걸러낸 뒤 노출한다.
   const sanitizedDescription = sanitizeDescriptionHtml(product.description);
@@ -115,6 +118,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
+      <TrackViewContent productId={product.id} productName={displayName} value={viewMinPrice} />
       <div className="grid md:grid-cols-2 gap-8">
         <ProductGallery
           images={thumbnailImages}

@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { formatWon } from "@/lib/format";
+import { trackMetaEvent } from "@/lib/metaPixel";
 import { AddressSearchButton } from "@/components/AddressSearchButton";
 import { TossPaymentWidget, type TossWidgetsInstance } from "@/components/TossPaymentWidget";
 import { createOrderAction } from "./actions";
@@ -60,6 +61,17 @@ export function CheckoutClient({
   nextTier: { label: string; emoji: string; discountPercent: number; remaining: number } | null;
 }) {
   const { items, totalPrice, clear } = useCart();
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    trackMetaEvent("InitiateCheckout", {
+      content_ids: items.map((i) => i.productId),
+      num_items: items.length,
+      value: totalPrice,
+      currency: "KRW",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const router = useRouter();
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +152,7 @@ export function CheckoutClient({
 
     if (paymentMethod === "BANK_TRANSFER") {
       clear();
-      router.push(`/orders/${result.orderId}`);
+      router.push(`/orders/${result.orderId}?purchased=1`);
       return;
     }
 
