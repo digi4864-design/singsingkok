@@ -6,8 +6,12 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@napi-rs/canvas"],
   experimental: {
     serverActions: {
-      // 관리자 이미지 업로드(썸네일/상세이미지 여러 장)를 위해 기본 1MB 제한을 상향
-      bodySizeLimit: "20mb",
+      // 관리자 이미지 업로드(썸네일/상세이미지 여러 장)와 고객 리뷰 사진 첨부(최대 3장)를
+      // 위해 기본 1MB 제한을 상향. 요즘 스마트폰 사진은 한 장에 8~15MB씩 나가는 경우가
+      // 흔해서, 20mb로는 사진 2~3장만 첨부해도 이 한도를 넘겨 요청 자체가 서버에 닿기도
+      // 전에 실패하는 사고가 실제로 있었다(고객에게는 "사이트 접속 실패"로만 보임 -
+      // 안내 메시지 없이 통째로 실패). 여유 있게 올린다.
+      bodySizeLimit: "50mb",
     },
   },
   images: {
