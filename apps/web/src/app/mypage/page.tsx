@@ -131,7 +131,7 @@ export default async function MyPage() {
               <li key={p.id} className="flex items-center justify-between text-sm">
                 <span className="text-amber-800 truncate mr-3">{getStorefrontName(p)}</span>
                 <Link
-                  href={`/products/${p.id}#review`}
+                  href={`/products/${p.id}/review`}
                   className="shrink-0 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-full px-3 py-1"
                 >
                   리뷰 쓰기
