@@ -6,6 +6,7 @@ import { prisma } from "@farm-mall/db";
 import { OptionSelector } from "@/components/OptionSelector";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
+import { ReviewList } from "@/components/ReviewList";
 import { auth } from "@/lib/auth";
 import { getStorefrontName, sanitizeDescriptionHtml, sanitizeSupplierNoticeText } from "@/lib/productDisplay";
 import { RestockSubscribeButton } from "@/components/RestockSubscribeButton";
@@ -135,9 +136,10 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{displayName}</h1>
 
           {avgRating !== null && (
-            <p className="text-sm text-amber-500 mb-1">
-              ★ {avgRating.toFixed(1)} <span className="text-gray-400">({reviews.length}개 리뷰)</span>
-            </p>
+            <Link href={`/products/${product.id}/reviews`} className="block text-sm text-amber-500 mb-1 hover:underline">
+              ★ {avgRating.toFixed(1)}{" "}
+              <span className="text-gray-400">({reviews.length}개 리뷰) 리뷰 보기 →</span>
+            </Link>
           )}
 
           <p className="text-xs text-gray-400 mb-1">
@@ -200,10 +202,17 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
       )}
 
       <section id="review" className="mt-16 max-w-2xl scroll-mt-20">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          상품 리뷰{" "}
-          {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">
+            상품 리뷰{" "}
+            {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}
+          </h2>
+          {reviews.length > 0 && (
+            <Link href={`/products/${product.id}/reviews`} className="text-sm text-primary hover:underline">
+              리뷰만 보기 →
+            </Link>
+          )}
+        </div>
 
         {session?.user ? (
           <div className="mb-6">
@@ -221,39 +230,7 @@ export default async function ProductDetailPage(props: PageProps<"/products/[id]
           </p>
         )}
 
-        {reviews.length === 0 ? (
-          <p className="text-sm text-gray-400">아직 등록된 리뷰가 없습니다.</p>
-        ) : (
-          <ul className="space-y-4">
-            {reviews.map((r) => (
-              <li key={r.id} className="border-b border-gray-100 pb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-amber-400 text-sm">{"★".repeat(r.rating)}</span>
-                  <span className="text-xs text-gray-400">{r.user.name ?? "구매자"}</span>
-                  <span className="text-xs text-gray-300">
-                    {r.createdAt.toLocaleDateString("ko-KR")}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
-                {r.images.length > 0 && (
-                  <div className="flex gap-2 mt-2">
-                    {r.images.map((src) => (
-                      <a key={src} href={src} target="_blank" rel="noopener noreferrer">
-                        <Image
-                          src={src}
-                          alt="리뷰 사진"
-                          width={80}
-                          height={80}
-                          className="w-20 h-20 rounded-lg object-cover border border-gray-200"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <ReviewList reviews={reviews} />
       </section>
     </main>
   );
