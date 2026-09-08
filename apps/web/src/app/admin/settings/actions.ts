@@ -17,6 +17,7 @@ export async function updateStoreSettingAction(formData: FormData) {
     promoBannerEnabled: formData.get("promoBannerEnabled") === "on",
     promoBannerText: field("promoBannerText"),
     promoBannerLink: field("promoBannerLink"),
+    bulkOrderBannerEnabled: formData.get("bulkOrderBannerEnabled") === "on",
     bankName: field("bankName"),
     bankAccountNumber: field("bankAccountNumber"),
     bankAccountHolder: field("bankAccountHolder"),

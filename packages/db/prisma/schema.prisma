@@ -70,8 +70,30 @@ model StoreSetting {
   promoBannerEnabled     Boolean  @default(false) // 메인페이지 상단 홍보 배너 노출 여부
   promoBannerText        String?  // 배너에 노출할 홍보 문구
   promoBannerLink        String?  // 배너 클릭 시 이동할 경로(예: /signup). 비어있으면 클릭 불가
+  bulkOrderBannerEnabled Boolean  @default(true) // 기업/단체 선물 대량구매 문의 배너 노출 여부
   cardFeePercent         Float    @default(3.2) // 카드결제 PG 수수료율(%) - 마진 계산 시 카드 결제 주문에서만 차감
   updatedAt              DateTime @updatedAt
+}
+
+// 대량구매 문의 처리 상태. 접수(NEW) -> 연락함(CONTACTED) -> 종결(CLOSED) 순으로 관리자가 직접 바꾼다.
+enum BulkOrderInquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// 기업/단체 선물 등 대량구매 문의. 회원가입 없이 누구나 남길 수 있는 리드(lead)라 User와
+// 연결하지 않는다. 접수되면 관리자에게 즉시 웹 푸시로 알린다(notifyAdmins).
+model BulkOrderInquiry {
+  id              String                 @id @default(cuid())
+  companyName     String // 회사/단체명
+  contactName     String // 담당자명
+  phone           String
+  productInterest String? // 관심 상품(선물세트 등)
+  quantity        String? // 희망 수량(대략적인 범위도 허용)
+  message         String?
+  status          BulkOrderInquiryStatus @default(NEW)
+  createdAt       DateTime               @default(now())
 }
 
 model Wishlist {

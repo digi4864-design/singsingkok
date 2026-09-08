@@ -46,6 +46,19 @@ export default async function AdminSettingsPage() {
         </div>
 
         <h2 className="text-sm font-semibold text-gray-700 pt-4 border-t border-gray-200">
+          기업·단체 대량구매 문의 배너
+        </h2>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            name="bulkOrderBannerEnabled"
+            defaultChecked={setting?.bulkOrderBannerEnabled ?? true}
+          />
+          메인페이지에 &quot;대량구매 문의하기&quot; 배너 노출 (접수 내역은 관리자 메뉴의
+          &quot;대량구매 문의&quot;에서 확인)
+        </label>
+
+        <h2 className="text-sm font-semibold text-gray-700 pt-4 border-t border-gray-200">
           카드결제 수수료
         </h2>
         <div>

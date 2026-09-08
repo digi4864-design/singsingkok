@@ -3,6 +3,7 @@ import { prisma } from "@farm-mall/db";
 import { ProductCard } from "@/components/ProductCard";
 import { PromoBanner } from "@/components/PromoBanner";
 import { PromoPopup } from "@/components/PromoPopup";
+import { BulkOrderBanner } from "@/components/BulkOrderBanner";
 import { getStorefrontName } from "@/lib/productDisplay";
 import { categoryIcon } from "@/lib/categoryIcons";
 import { auth } from "@/lib/auth";
@@ -124,6 +125,7 @@ export default async function HomePage({
       {firstPurchaseCouponEligible && (
         <PromoBanner text="🎁 첫구매 감사 쿠폰 5,000원이 기다리고 있어요! (5만원 이상 구매 시 결제창에서 사용)" link={null} />
       )}
+      {setting?.bulkOrderBannerEnabled && <BulkOrderBanner />}
       {isDefaultView && <PromoPopup isLoggedIn={Boolean(session?.user)} />}
       <main className="max-w-6xl mx-auto px-4 py-8">
       <form action="/" className="mb-6 flex gap-2 max-w-md">
