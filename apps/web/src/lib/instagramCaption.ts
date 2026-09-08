@@ -47,7 +47,9 @@ export function buildHashtags(product: CaptionProduct): string[] {
   if (firstWordTag && firstWordTag !== fullTag) tags.add(firstWordTag);
   for (const t of BASE_HASHTAGS) tags.add(t);
 
-  return [...tags].slice(0, 25).map((t) => `#${t}`);
+  // 인스타그램이 2025년 말부터 해시태그를 5개까지만 노출 효과가 있도록 바꿔서, 그 이상은
+  // 넣어봐야 효과가 없다 - 상품명 기반 태그(가장 구체적)를 우선 살리고 5개로 자른다.
+  return [...tags].slice(0, 5).map((t) => `#${t}`);
 }
 
 // 관리자가 게시 전 자유롭게 수정할 수 있는 "초안" 문구. AI 호출 없이 규칙 기반으로 생성해
