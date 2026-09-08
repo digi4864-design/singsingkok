@@ -1,3 +1,5 @@
+import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@farm-mall/db";
 import { getStorefrontName } from "@/lib/productDisplay";
 import { buildDefaultCaption, buildDefaultOverlayBadge } from "@/lib/instagramCaption";
@@ -44,9 +46,9 @@ export default async function AdminInstagramPage({
     }),
     prisma.product.findMany({
       where: { instagramPostedAt: { not: null } },
-      select: { id: true, name: true, displayName: true, instagramPostedAt: true },
+      select: { id: true, name: true, displayName: true, thumbnailUrl: true, instagramPostedAt: true },
       orderBy: { instagramPostedAt: "desc" },
-      take: 10,
+      take: 200,
     }),
     q?.trim()
       ? prisma.product.findMany({
@@ -160,17 +162,43 @@ export default async function AdminInstagramPage({
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">최근 게시 이력</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          🖼 인스타그램 게시 완료 상품 ({recentlyPosted.length})
+        </h2>
         {recentlyPosted.length === 0 ? (
           <p className="text-sm text-gray-400">아직 게시한 상품이 없습니다.</p>
         ) : (
-          <ul className="text-sm text-gray-500 space-y-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {recentlyPosted.map((p) => (
-              <li key={p.id}>
-                {p.instagramPostedAt!.toLocaleString("ko-KR")} · {p.displayName ?? p.name}
-              </li>
+              <Link
+                key={p.id}
+                href={`/admin/products/${p.id}`}
+                className="border border-gray-200 rounded-lg overflow-hidden hover:border-primary transition-colors"
+              >
+                <div className="relative aspect-square bg-gray-50">
+                  {p.thumbnailUrl ? (
+                    <Image
+                      src={p.thumbnailUrl}
+                      alt={p.displayName ?? p.name}
+                      fill
+                      sizes="200px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
+                      사진 없음
+                    </div>
+                  )}
+                </div>
+                <div className="p-2">
+                  <p className="text-xs text-gray-800 truncate">{p.displayName ?? p.name}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {p.instagramPostedAt!.toLocaleDateString("ko-KR")}
+                  </p>
+                </div>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>
