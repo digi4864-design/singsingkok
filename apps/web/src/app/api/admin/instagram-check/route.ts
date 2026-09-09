@@ -28,5 +28,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, status: res.status, error: data }, { status: 502 });
   }
 
+  // ?media=1을 붙이면 실제 최근 게시물 목록(캡션/시각/링크)도 같이 보여준다 - DB에 기록된
+  // instagramPostedAt 개수와 실제 인스타그램 media_count가 어긋날 때(예: 발행 API가 에러를
+  // 반환했는데 실제로는 게시가 성공한 경우) 어떤 게시물이 DB에 안 잡혔는지 대조하는 용도.
+  if (url.searchParams.get("media") === "1") {
+    const mediaRes = await fetch(
+      `https://graph.instagram.com/v23.0/${igAccountId}/media?fields=id,caption,timestamp,permalink,media_type&limit=20&access_token=${igToken}`,
+      { cache: "no-store" }
+    );
+    const mediaData = await mediaRes.json();
+    return NextResponse.json({ ok: true, account: data, media: mediaData });
+  }
+
   return NextResponse.json({ ok: true, account: data });
 }
