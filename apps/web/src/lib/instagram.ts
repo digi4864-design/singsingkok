@@ -72,7 +72,17 @@ async function waitUntilFinished(containerId: string, timeoutMs = 30_000): Promi
   throw new Error("인스타그램 미디어 처리 시간 초과");
 }
 
-async function publishContainer(containerId: string): Promise<string> {
+// 컨테이너 상태를 FINISHED로 확인한 직후에 바로 발행을 호출해도, 인스타그램 쪽 발행
+// 엔드포인트에는 수 초의 반영 지연이 있어 "미디어가 아직 준비되지 않았다"는 에러
+// (코드 9007, 서브코드 2207027 - "The media is not ready to be published")가 종종 난다.
+// 캐러셀(여러 장) 게시물에서 특히 자주 발생하는 걸로 알려진 현상이라, 이 에러일 때만
+// 몇 초 기다렸다가 재시도한다.
+function isMediaNotReadyError(data: unknown): boolean {
+  const error = (data as { error?: { code?: number; error_subcode?: number } })?.error;
+  return error?.code === 9007 && error?.error_subcode === 2207027;
+}
+
+async function publishContainer(containerId: string, attempt = 1): Promise<string> {
   const { token, accountId } = requireEnv();
   const res = await fetch(`${GRAPH_BASE}/${accountId}/media_publish`, {
     method: "POST",
@@ -80,6 +90,12 @@ async function publishContainer(containerId: string): Promise<string> {
     body: JSON.stringify({ creation_id: containerId, access_token: token }),
   });
   const data = await res.json();
+
+  if (isMediaNotReadyError(data) && attempt < 5) {
+    await new Promise((r) => setTimeout(r, 4000));
+    return publishContainer(containerId, attempt + 1);
+  }
+
   if (!res.ok || !data.id) {
     throw new Error(`인스타그램 게시 실패: ${JSON.stringify(data)}`);
   }
@@ -99,6 +115,7 @@ export async function postImagesToInstagram(imageUrls: string[], caption: string
   if (images.length === 1) {
     const containerId = await createImageContainer(images[0], caption);
     await waitUntilFinished(containerId);
+    await new Promise((r) => setTimeout(r, 2000));
     const mediaId = await publishContainer(containerId);
     return { mediaId };
   }
@@ -107,6 +124,7 @@ export async function postImagesToInstagram(imageUrls: string[], caption: string
   await Promise.all(childIds.map((id) => waitUntilFinished(id)));
   const containerId = await createCarouselContainer(childIds, caption);
   await waitUntilFinished(containerId);
+  await new Promise((r) => setTimeout(r, 2000));
   const mediaId = await publishContainer(containerId);
   return { mediaId };
 }

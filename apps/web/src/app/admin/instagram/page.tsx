@@ -6,6 +6,9 @@ import { buildDefaultCaption, buildDefaultOverlayBadge } from "@/lib/instagramCa
 import { InstagramPostCard } from "./InstagramPostCard";
 
 export const dynamic = "force-dynamic";
+// 캐러셀(여러 장) 게시는 사진마다 처리 대기 + 발행 재시도가 겹치면 1분을 넘길 수 있어,
+// 이 페이지에서 호출되는 Server Action(게시하기)의 제한 시간을 넉넉하게 잡는다.
+export const maxDuration = 120;
 
 const SELECT = {
   id: true,
