@@ -2,9 +2,16 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { confirmDeliveryAction, requestReturnAction, type ReturnRequestState } from "./actions";
+import {
+  confirmDeliveryAction,
+  requestReturnAction,
+  cancelPaymentAction,
+  type ReturnRequestState,
+  type CancelPaymentState,
+} from "./actions";
 
 const initialReturnState: ReturnRequestState = { ok: false, message: "" };
+const initialCancelState: CancelPaymentState = { ok: false, message: "" };
 
 export function OrderActions({
   orderId,
@@ -19,6 +26,34 @@ export function OrderActions({
 }) {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnState, returnAction, returnPending] = useActionState(requestReturnAction, initialReturnState);
+  const [cancelState, cancelAction, cancelPending] = useActionState(cancelPaymentAction, initialCancelState);
+
+  if (status === "PAID" || status === "PREPARING") {
+    return (
+      <section className="mb-8 space-y-2">
+        <form
+          action={cancelAction}
+          onSubmit={(e) => {
+            if (!confirm("결제를 취소하시겠어요?\n취소 후에는 되돌릴 수 없습니다.")) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="orderId" value={orderId} />
+          <button
+            type="submit"
+            disabled={cancelPending}
+            className="w-full py-2.5 text-sm rounded-lg border border-red-300 text-red-600 hover:bg-red-50 font-medium disabled:opacity-50"
+          >
+            {cancelPending ? "취소 처리 중..." : "결제 취소하기"}
+          </button>
+        </form>
+        {cancelState.message && (
+          <p className={`text-xs ${cancelState.ok ? "text-primary" : "text-red-500"}`}>{cancelState.message}</p>
+        )}
+      </section>
+    );
+  }
 
   if (status === "SHIPPING" || status === "DELIVERED") {
     return (

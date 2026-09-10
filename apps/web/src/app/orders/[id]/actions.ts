@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { auth } from "@/lib/auth";
+import { refreshMembershipTier } from "@/lib/updateMembership";
+import { refundPointsForOrder } from "@/lib/points";
+import { cancelTossPayment } from "@/lib/tossPayment";
 
 async function requireOwnOrder(orderId: string) {
   const session = await auth();
@@ -34,6 +37,72 @@ export async function confirmDeliveryAction(formData: FormData) {
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/mypage");
+}
+
+export interface CancelPaymentState {
+  ok: boolean;
+  message: string;
+}
+
+// 배송 준비 전(결제완료~배송준비중) 상태의 주문만 고객이 직접 취소할 수 있다. 배송이
+// 시작된 이후엔 이미 상품이 출고된 상태라 자동취소 대신 반품/교환 요청 절차를 타야 한다.
+const SELF_CANCELABLE_STATUSES = new Set(["PAID", "PREPARING"]);
+
+export async function cancelPaymentAction(
+  _prev: CancelPaymentState,
+  formData: FormData
+): Promise<CancelPaymentState> {
+  const orderId = String(formData.get("orderId"));
+
+  let order;
+  try {
+    order = await requireOwnOrder(orderId);
+  } catch {
+    return { ok: false, message: "주문을 찾을 수 없습니다." };
+  }
+
+  if (!SELF_CANCELABLE_STATUSES.has(order.status)) {
+    return {
+      ok: false,
+      message: "배송 준비 중까지의 주문만 직접 취소할 수 있습니다. 이미 배송이 시작됐다면 반품/교환을 요청해주세요.",
+    };
+  }
+
+  const payment = await prisma.payment.findUnique({
+    where: { orderId },
+    select: { paymentKey: true, status: true },
+  });
+
+  // 카드로 결제된 건만 토스에 실제 환불을 요청한다. 무통장입금 건은 paymentKey가 없으므로
+  // (관리자가 입금 확인 후 수동으로 상태만 바꿔둔 것) 자동 환불 대상이 아니라 상태만 바꾸고
+  // 관리자가 계좌로 직접 환불해야 한다.
+  if (payment?.paymentKey && payment.status === "DONE") {
+    const result = await cancelTossPayment(payment.paymentKey, "고객 요청 취소");
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.message ?? "결제 취소 처리 중 문제가 발생했습니다. 고객센터로 문의해주세요.",
+      };
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } }),
+    prisma.payment.updateMany({ where: { orderId }, data: { status: "CANCELED" } }),
+  ]);
+
+  await refreshMembershipTier(order.customerId);
+  await refundPointsForOrder(prisma, order);
+
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/mypage");
+
+  return {
+    ok: true,
+    message: payment?.paymentKey
+      ? "결제가 취소되었습니다. 결제하신 수단으로 환불되며, 카드사에 따라 영업일 기준 며칠 걸릴 수 있어요."
+      : "주문이 취소되었습니다. 입금하신 금액은 확인 후 계좌로 환불해드리겠습니다.",
+  };
 }
 
 export interface ReturnRequestState {

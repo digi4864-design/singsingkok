@@ -10,6 +10,7 @@ import {
   markFirstPurchaseCouponUsedIfApplicable,
 } from "@/lib/updateMembership";
 import { redeemPointsForOrder, refundPointsForOrder } from "@/lib/points";
+import { cancelTossPayment } from "@/lib/tossPayment";
 
 export async function confirmPaymentAction(formData: FormData) {
   await requireAdmin();
@@ -117,10 +118,27 @@ export async function cancelOrderAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
 
-  const before = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  const before = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { status: true, payment: { select: { paymentKey: true, status: true } } },
+  });
   const wasPaid = before?.status !== "PENDING_PAYMENT" && before?.status !== "CANCELED";
 
-  const order = await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } });
+  // 카드로 결제된 건(paymentKey 존재)은 상태만 바꾸는 게 아니라 토스에 실제 취소(환불)를
+  // 요청해야 한다 - 예전엔 이 호출이 빠져 있어서 관리자가 "취소" 버튼을 눌러도 카드
+  // 승인분이 그대로 남아있는 문제가 있었다.
+  if (before?.payment?.paymentKey && before.payment.status === "DONE") {
+    const result = await cancelTossPayment(before.payment.paymentKey, "관리자 취소");
+    if (!result.ok) {
+      throw new Error(result.message ?? "결제 취소에 실패했습니다.");
+    }
+  }
+
+  const [order] = await prisma.$transaction([
+    prisma.order.update({ where: { id: orderId }, data: { status: "CANCELED" } }),
+    // updateMany로 처리해서 결제 레코드가 없는 주문(생성 직후 등)이어도 에러 없이 통과한다.
+    prisma.payment.updateMany({ where: { orderId }, data: { status: "CANCELED" } }),
+  ]);
   // 취소된 주문은 누적 구매금액에서 빠져야 하므로 등급도 다시 계산한다.
   await refreshMembershipTier(order.customerId);
   // 결제 확정(포인트 차감) 이후 취소된 주문이라면 사용했던 포인트를 되돌려준다.
