@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma, OrderStatus } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
 import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
-import { bulkMarkPreparingAction, bulkCancelPendingAction } from "./actions";
+import { bulkMarkPreparingAction, bulkCancelPendingAction, bulkMarkDeliveredAction } from "./actions";
 import { SelectAllCheckbox } from "./SelectAllCheckbox";
 import { BulkActionForm } from "./BulkActionForm";
 import { getCourierTrackingUrl } from "@/lib/courierTracking";
@@ -70,7 +70,14 @@ export default async function AdminOrdersPage({
 
   // 체크박스/일괄 처리 버튼은 결제완료·결제대기 탭으로 필터링했을 때만 노출한다
   // (여러 상태가 섞인 "전체" 탭 등에서는 어떤 일괄 처리를 적용할지 모호하기 때문).
-  const bulkMode = status === "PAID" ? "PAID" : status === "PENDING_PAYMENT" ? "PENDING_PAYMENT" : null;
+  const bulkMode =
+    status === "PAID"
+      ? "PAID"
+      : status === "PENDING_PAYMENT"
+        ? "PENDING_PAYMENT"
+        : status === "SHIPPING"
+          ? "SHIPPING"
+          : null;
 
   return (
     <div>
@@ -235,6 +242,13 @@ export default async function AdminOrdersPage({
         if (bulkMode === "PAID") {
           return (
             <BulkActionForm action={bulkMarkPreparingAction} buttonLabel="선택한 결제완료 주문 배송준비중으로 변경">
+              {table}
+            </BulkActionForm>
+          );
+        }
+        if (bulkMode === "SHIPPING") {
+          return (
+            <BulkActionForm action={bulkMarkDeliveredAction} buttonLabel="선택한 배송중 주문 배송완료로 변경">
               {table}
             </BulkActionForm>
           );

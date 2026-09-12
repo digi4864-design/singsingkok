@@ -114,6 +114,34 @@ export async function markDeliveredAction(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+// 배송중 목록에서 여러 건을 한 번에 배송완료로 바꾼다. 상품마다 운송장이 따로 있을 수
+// 있으므로(공급사가 상품별로 따로 출고) 등록된 모든 상품의 배송 상태도 함께 배송완료로
+// 맞춘다. 실수로 다른 상태의 주문이 섞여 체크되어도 SHIPPING 상태인 것만 반영되도록
+// 서버에서 다시 한번 필터링한다.
+export async function bulkMarkDeliveredAction(formData: FormData) {
+  await requireAdmin();
+  const orderIds = formData.getAll("orderIds").map(String).filter(Boolean);
+  if (orderIds.length === 0) return;
+
+  const orders = await prisma.order.findMany({
+    where: { id: { in: orderIds }, status: "SHIPPING" },
+    select: { id: true },
+  });
+  if (orders.length === 0) return;
+  const validIds = orders.map((o) => o.id);
+
+  await prisma.shipment.updateMany({
+    where: { orderItem: { orderId: { in: validIds } } },
+    data: { status: "DELIVERED", deliveredAt: new Date() },
+  });
+  await prisma.order.updateMany({
+    where: { id: { in: validIds } },
+    data: { status: "DELIVERED" },
+  });
+
+  revalidatePath("/admin/orders");
+}
+
 export async function cancelOrderAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));
