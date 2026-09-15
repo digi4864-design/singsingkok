@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
-import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
+import { computeCardFee, computeMarginAmount, computeTotalCost, paymentMethodLabel } from "@/lib/margin";
 import { getCourierTrackingUrl } from "@/lib/courierTracking";
 import {
   confirmPaymentAction,
@@ -9,6 +9,7 @@ import {
   markPreparingAction,
   markDeliveredAction,
   cancelOrderAction,
+  saveAdminMemoAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +92,27 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
         {order.memo && <p className="text-gray-400">요청사항: {order.memo}</p>}
       </section>
 
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-700 mb-2">관리자 메모</h2>
+        <p className="text-xs text-gray-400 mb-2">고객에게 노출되지 않는 내부용 메모입니다. (전화 확인 내역, 처리 이력 등)</p>
+        <form action={saveAdminMemoAction} className="flex flex-col gap-2">
+          <input type="hidden" name="orderId" value={order.id} />
+          <textarea
+            name="adminMemo"
+            defaultValue={order.adminMemo ?? ""}
+            rows={3}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full"
+            placeholder="예: 9/15 전화로 입금 확인함"
+          />
+          <button
+            type="submit"
+            className="self-start px-4 py-1.5 text-sm rounded-lg border border-primary text-primary hover:bg-primary/5"
+          >
+            메모 저장
+          </button>
+        </form>
+      </section>
+
       {order.status === "RETURN_REQUESTED" && (
         <section className="mb-8 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
           <h2 className="text-sm font-semibold text-red-700 mb-1">반품 요청</h2>
@@ -100,9 +122,17 @@ export default async function AdminOrderDetailPage(props: PageProps<"/admin/orde
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">결제</h2>
-        <p className="text-sm text-gray-600 mb-2">
-          상태: {order.payment?.status === "DONE" ? "입금/결제 확인됨" : "미확인"}
-          {order.payment?.method ? ` (${order.payment.method})` : ""}
+        <p className="text-sm mb-2">
+          <span
+            className={`inline-block px-2 py-0.5 rounded-full text-xs mr-2 ${
+              order.payment?.method ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {paymentMethodLabel(order.payment?.method)}
+          </span>
+          <span className="text-gray-600">
+            상태: {order.payment?.status === "DONE" ? "입금/결제 확인됨" : "미확인"}
+          </span>
         </p>
         <div className="text-sm space-y-1 mb-3 bg-gray-50 rounded-lg px-3 py-2">
           <div className="flex justify-between text-gray-500">

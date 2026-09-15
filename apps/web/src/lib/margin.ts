@@ -7,6 +7,14 @@ export function isCardPayment(method: string | null | undefined): boolean {
   return Boolean(method) && method !== BANK_TRANSFER_METHOD;
 }
 
+// 관리자 화면에 보여줄 결제수단 표시명. method가 비어있으면(카드 위젯을 아직 거치지
+// 않은 상태) 무통장입금 선택 건이므로 "무통장입금(입금대기)"로 보여준다.
+export function paymentMethodLabel(method: string | null | undefined): string {
+  if (!method) return "무통장입금(입금대기)";
+  if (method === BANK_TRANSFER_METHOD) return "무통장입금(확인완료)";
+  return "카드결제";
+}
+
 export function computeCardFee(
   totalAmount: number,
   method: string | null | undefined,

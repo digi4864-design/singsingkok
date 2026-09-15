@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma, OrderStatus } from "@farm-mall/db";
 import { formatWon } from "@/lib/format";
-import { computeCardFee, computeMarginAmount, computeTotalCost } from "@/lib/margin";
+import { computeCardFee, computeMarginAmount, computeTotalCost, paymentMethodLabel } from "@/lib/margin";
 import { bulkMarkPreparingAction, bulkCancelPendingAction, bulkMarkDeliveredAction } from "./actions";
 import { SelectAllCheckbox } from "./SelectAllCheckbox";
 import { BulkActionForm } from "./BulkActionForm";
@@ -152,6 +152,7 @@ export default async function AdminOrdersPage({
                 <th className="text-left px-4 py-2 font-medium">원가</th>
                 <th className="text-left px-4 py-2 font-medium">마진금액</th>
                 <th className="text-left px-4 py-2 font-medium">상태</th>
+                <th className="text-left px-4 py-2 font-medium">결제수단</th>
                 <th className="text-left px-4 py-2 font-medium">배송</th>
                 <th className="text-left px-4 py-2 font-medium">주문일시</th>
               </tr>
@@ -159,7 +160,7 @@ export default async function AdminOrdersPage({
             <tbody className="divide-y divide-gray-100">
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={bulkMode ? 11 : 10} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={bulkMode ? 12 : 11} className="px-4 py-10 text-center text-gray-400">
                     주문이 없습니다.
                   </td>
                 </tr>
@@ -181,6 +182,11 @@ export default async function AdminOrdersPage({
                     <Link href={`/admin/orders/${o.id}`} className="hover:text-primary">
                       {o.orderNo}
                     </Link>
+                    {o.adminMemo && (
+                      <span className="ml-1 text-amber-500" title={o.adminMemo}>
+                        📝
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-gray-600">{o.recipientName}</td>
                   <td className="px-4 py-2 text-gray-500">
@@ -196,6 +202,17 @@ export default async function AdminOrdersPage({
                   <td className="px-4 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[o.status]}`}>
                       {STATUS_LABEL[o.status] ?? o.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs ${
+                        o.payment?.method
+                          ? "bg-gray-100 text-gray-500"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {paymentMethodLabel(o.payment?.method)}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-xs">
