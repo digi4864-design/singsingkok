@@ -75,6 +75,17 @@ export async function saveShipmentAction(formData: FormData) {
   revalidatePath("/admin/orders");
 }
 
+export async function saveAdminMemoAction(formData: FormData) {
+  await requireAdmin();
+  const orderId = String(formData.get("orderId"));
+  const memo = String(formData.get("adminMemo") ?? "").trim();
+
+  await prisma.order.update({ where: { id: orderId }, data: { adminMemo: memo || null } });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+}
+
 export async function markPreparingAction(formData: FormData) {
   await requireAdmin();
   const orderId = String(formData.get("orderId"));

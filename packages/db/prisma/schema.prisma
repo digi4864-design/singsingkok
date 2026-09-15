@@ -360,7 +360,8 @@ model Order {
   zipCode         String
   address         String
   addressDetail   String?
-  memo            String?
+  memo            String? // 고객이 결제 시 입력한 요청사항
+  adminMemo       String? // 관리자 전용 메모(고객에게 노출되지 않음) - 전화확인 내역, 처리 이력 등
   returnReason    String? // 고객이 반품 요청 시 입력한 사유
   reviewReminderSentAt DateTime? // 배송완료 후 리뷰 작성 리마인드 푸시를 보낸 시각(중복 발송 방지)
   items           OrderItem[]
