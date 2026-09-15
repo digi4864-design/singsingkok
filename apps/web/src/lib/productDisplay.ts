@@ -20,6 +20,7 @@ const INTERNAL_GUIDANCE_MARKERS = [
   "사진 첨부",
   "첨부건",
   "접수해",
+  "제휴", // "[제휴A]" 등 - 어느 제휴처를 통해 들여온 상품인지 표시하는 내부 관리용 태그, 고객에게는 무의미
 ];
 
 function looksLikeInternalGuidance(text: string): boolean {
