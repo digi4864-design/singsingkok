@@ -10,6 +10,7 @@ import {
 } from "@/lib/membership";
 import { getStorefrontName } from "@/lib/productDisplay";
 import { notifyAdmins } from "@/lib/push";
+import { notifyOrderPlaced } from "@/lib/sms";
 import { formatWon } from "@/lib/format";
 import { clearCartActivity } from "@/lib/cartActivity";
 
@@ -150,6 +151,27 @@ export async function createOrderAction(input: CheckoutInput): Promise<CheckoutR
     `${input.recipientName}님 · ${formatWon(totalAmount)} · ${lineItems[0].productName}${lineItems.length > 1 ? ` 외 ${lineItems.length - 1}건` : ""}`,
     `/admin/orders/${order.id}`
   );
+
+  // 무통장입금은 카드결제와 달리 결제 승인 콜백이 없으므로, 주문 접수 시점에 바로
+  // 입금 안내 문자를 보낸다(카드결제는 /api/payments/confirm에서 승인 후 발송).
+  if (input.paymentMethod === "BANK_TRANSFER") {
+    const storeSetting = await prisma.storeSetting.findUnique({ where: { id: "default" } });
+    await notifyOrderPlaced({
+      recipientName: input.recipientName,
+      recipientPhone: input.recipientPhone,
+      orderNo: order.orderNo,
+      totalAmount,
+      paymentMethod: "BANK_TRANSFER",
+      bankInfo:
+        storeSetting?.bankName && storeSetting?.bankAccountNumber
+          ? {
+              bankName: storeSetting.bankName,
+              bankAccountNumber: storeSetting.bankAccountNumber,
+              bankAccountHolder: storeSetting.bankAccountHolder ?? "",
+            }
+          : null,
+    });
+  }
 
   if (session?.user) {
     await clearCartActivity(session.user.id).catch(() => {});

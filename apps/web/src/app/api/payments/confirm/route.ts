@@ -7,6 +7,7 @@ import {
   markFirstPurchaseCouponUsedIfApplicable,
 } from "@/lib/updateMembership";
 import { redeemPointsForOrder } from "@/lib/points";
+import { notifyOrderPlaced } from "@/lib/sms";
 
 function failRedirect(req: NextRequest, message: string) {
   const url = new URL("/checkout/fail", req.url);
@@ -81,6 +82,14 @@ export async function GET(req: NextRequest) {
   await markFirstPurchaseCouponUsedIfApplicable(order.customerId, order.firstPurchaseCouponApplied);
   await grantFirstPurchaseCouponIfApplicable(order.customerId, order.id);
   await redeemPointsForOrder(prisma, order);
+
+  await notifyOrderPlaced({
+    recipientName: order.recipientName,
+    recipientPhone: order.recipientPhone,
+    orderNo: order.orderNo,
+    totalAmount: order.totalAmount,
+    paymentMethod: "CARD",
+  });
 
   return NextResponse.redirect(new URL(`/orders/${order.id}?purchased=1`, req.url));
 }

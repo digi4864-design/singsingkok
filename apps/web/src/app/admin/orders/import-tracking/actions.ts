@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { parseTrackingExcel } from "@farm-mall/sync";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { notifyShippingStarted } from "@/lib/sms";
 
 export interface TrackingImportState {
   ok: boolean;
@@ -145,10 +146,25 @@ export async function importTrackingAction(
   // 상품 중 하나라도 운송장이 등록되면 주문 상태를 배송중으로 바꾼다(나머지 상품은 나중에
   // 등록돼도 상태는 그대로 배송중을 유지 - 전부 도착해야 고객이 직접 구매확정한다).
   if (shippedOrderIds.size > 0) {
+    // updateMany 전 상태(pendingOrders는 이 요청 시작 시점 스냅샷)를 기준으로, 지금 막
+    // 배송중으로 처음 바뀌는 주문에만 발송 안내 문자를 보낸다(이미 배송중이던 주문에
+    // 나머지 상품 운송장이 추가로 등록된 경우 중복 발송하지 않도록).
+    const newlyShipped = [...shippedOrderIds]
+      .map((id) => pendingOrders.find((o) => o.id === id))
+      .filter(
+        (o): o is (typeof pendingOrders)[number] => Boolean(o) && (o!.status === "PAID" || o!.status === "PREPARING")
+      );
+
     await prisma.order.updateMany({
       where: { id: { in: [...shippedOrderIds] }, status: { in: ["PAID", "PREPARING"] } },
       data: { status: "SHIPPING" },
     });
+
+    await Promise.all(
+      newlyShipped.map((o) =>
+        notifyShippingStarted({ recipientName: o.recipientName, recipientPhone: o.recipientPhone, orderNo: o.orderNo })
+      )
+    );
   }
 
   revalidatePath("/admin/orders");

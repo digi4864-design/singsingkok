@@ -11,6 +11,7 @@ import {
 } from "@/lib/updateMembership";
 import { redeemPointsForOrder, refundPointsForOrder } from "@/lib/points";
 import { cancelTossPayment } from "@/lib/tossPayment";
+import { notifyShippingStarted } from "@/lib/sms";
 
 export async function confirmPaymentAction(formData: FormData) {
   await requireAdmin();
@@ -66,10 +67,20 @@ export async function saveShipmentAction(formData: FormData) {
     },
   });
   // 상품 중 하나라도 운송장이 등록되면 배송중으로 바꾼다(전부 도착해야 고객이 구매확정한다).
-  await prisma.order.updateMany({
+  const { count } = await prisma.order.updateMany({
     where: { id: item.orderId, status: { in: ["PAID", "PREPARING"] } },
     data: { status: "SHIPPING" },
   });
+
+  // count > 0은 지금 막 배송중으로 처음 바뀌었다는 뜻 - 이때만 발송 안내 문자를 보낸다
+  // (같은 주문에 나머지 상품 운송장이 나중에 등록될 때 문자가 중복 발송되지 않도록).
+  if (count > 0) {
+    const order = await prisma.order.findUnique({
+      where: { id: item.orderId },
+      select: { recipientName: true, recipientPhone: true, orderNo: true },
+    });
+    if (order) await notifyShippingStarted(order);
+  }
 
   revalidatePath(`/admin/orders/${item.orderId}`);
   revalidatePath("/admin/orders");
