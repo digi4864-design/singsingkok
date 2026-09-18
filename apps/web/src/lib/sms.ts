@@ -80,6 +80,17 @@ export async function notifyShippingStarted(order: {
   await sendSms(order.recipientPhone, message, "배송시작 안내");
 }
 
+// 회원가입 시 휴대폰번호를 등록한 회원에게 보내는 환영 문자 - 가입 시 자동 발급되는
+// 웰컴 쿠폰(WELCOME_COUPON_PERCENT) 혜택을 함께 안내한다.
+export async function notifySignupWelcome(member: {
+  name: string;
+  phone: string;
+  welcomeCouponPercent: number;
+}): Promise<void> {
+  const message = `[싱싱콕] ${member.name}님, 회원가입을 환영합니다! 가입 축하로 ${member.welcomeCouponPercent}% 할인 쿠폰을 드렸어요. 마이페이지에서 확인하고 첫 구매에 사용해보세요.`;
+  await sendSms(member.phone, message, "회원가입 환영");
+}
+
 // 관리자가 회원들에게 임의 문자를 보낼 때 사용. 알리고는 receiver를 콤마로 이으면
 // 한 번의 호출로 최대 1000명까지 동시에 보낼 수 있어서, 수신자 수와 무관하게 항상
 // 외부 API 호출 한두 번으로 끝난다(회원 수만큼 반복 호출하지 않아도 됨).
