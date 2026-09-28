@@ -94,9 +94,15 @@ export async function notifySignupWelcome(member: {
 // 관리자가 회원들에게 임의 문자를 보낼 때 사용. 알리고는 receiver를 콤마로 이으면
 // 한 번의 호출로 최대 1000명까지 동시에 보낼 수 있어서, 수신자 수와 무관하게 항상
 // 외부 API 호출 한두 번으로 끝난다(회원 수만큼 반복 호출하지 않아도 됨).
+export interface SmsSchedule {
+  rdate: string; // YYYYMMDD
+  rtime: string; // HHMM
+}
+
 export async function sendBulkSms(
   phones: string[],
-  message: string
+  message: string,
+  schedule?: SmsSchedule
 ): Promise<{ successCount: number; failCount: number; skipped: boolean }> {
   if (!isConfigured()) {
     console.warn("[sms] ALIGO_PROXY_URL/ALIGO_PROXY_SECRET 미설정 - 문자 발송을 건너뜁니다.");
@@ -124,6 +130,7 @@ export async function sendBulkSms(
           msg: message,
           msg_type: msgType,
           title: "싱싱콕 안내",
+          ...(schedule ? { rdate: schedule.rdate, rtime: schedule.rtime } : {}),
         }),
       });
       const data = await res.json();

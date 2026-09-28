@@ -5,6 +5,13 @@ import { sendSmsAction, type SmsSendState } from "./actions";
 
 const initialState: SmsSendState = { ok: false, message: "" };
 
+// datetime-local의 min/value는 브라우저 로컬시각 기준 "YYYY-MM-DDTHH:mm" 문자열을
+// 기대한다 - toISOString()은 UTC라 그대로 쓰면 한국 시각 기준으로 어긋난다.
+function toLocalDatetimeValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 // 알리고는 90byte(EUC-KR 기준, 한글 1자=2byte) 초과 시 자동으로 LMS(장문)로 전환된다.
 // 실제 판정은 서버(lib/sms.ts)에서 하고, 여기서는 안내 문구만 보여준다.
 function getByteLength(text: string): number {
@@ -29,7 +36,11 @@ export function SmsForm({ users }: { users: { id: string; name: string | null; p
           alert("받는 사람을 한 명 이상 선택해주세요.");
           return;
         }
-        if (!confirm(`선택한 ${checked}명에게 문자를 발송하시겠습니까?`)) {
+        const scheduleAt = (form.elements.namedItem("scheduleAt") as HTMLInputElement | null)?.value;
+        const confirmMessage = scheduleAt
+          ? `선택한 ${checked}명에게 ${scheduleAt.replace("T", " ")}에 예약 발송하시겠습니까?`
+          : `선택한 ${checked}명에게 문자를 발송하시겠습니까?`;
+        if (!confirm(confirmMessage)) {
           e.preventDefault();
         }
       }}
@@ -70,6 +81,20 @@ export function SmsForm({ users }: { users: { id: string; name: string | null; p
           문자 내용
         </label>
         <MessageTextarea />
+
+        <div className="mt-3">
+          <label htmlFor="scheduleAt" className="block text-sm font-medium text-gray-700 mb-1.5">
+            예약 발송 <span className="text-gray-400 font-normal">(선택 - 비워두면 즉시 발송)</span>
+          </label>
+          <input
+            id="scheduleAt"
+            name="scheduleAt"
+            type="datetime-local"
+            min={toLocalDatetimeValue(new Date(Date.now() + 60_000))}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+          />
+        </div>
+
         <button
           type="submit"
           className="mt-3 px-5 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover transition-colors"
