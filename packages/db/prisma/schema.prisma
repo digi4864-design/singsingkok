@@ -387,6 +387,8 @@ model OrderItem {
   quantity        Int
   lineTotal       Int
   lineNo          Int      @default(1) // 주문 내 순번(1부터). 발주 엑셀의 "거래처주문번호-N" 접미사와 매칭되는 값
+  canceledAt      DateTime? // 이 상품만 부분취소된 시각(null이면 취소 안 됨)
+  canceledAmount  Int?      // 실제로 환불된 금액(할인 반영 후 비례배분값) - 관리자 화면 표시용
   shipment        Shipment?
 }
 

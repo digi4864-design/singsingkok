@@ -6,7 +6,13 @@ export interface TossCancelResult {
   message?: string;
 }
 
-export async function cancelTossPayment(paymentKey: string, cancelReason: string): Promise<TossCancelResult> {
+// cancelAmount를 생략하면 전액취소, 지정하면 그 금액만큼만 부분취소한다(한 주문에 상품이
+// 여러 개일 때 상품 하나만 취소하는 경우 사용).
+export async function cancelTossPayment(
+  paymentKey: string,
+  cancelReason: string,
+  cancelAmount?: number
+): Promise<TossCancelResult> {
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) {
     return { ok: false, message: "결제 설정이 완료되지 않았습니다. 관리자에게 문의해주세요." };
@@ -19,7 +25,9 @@ export async function cancelTossPayment(paymentKey: string, cancelReason: string
       Authorization: `Basic ${basicAuth}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ cancelReason }),
+    body: JSON.stringify(
+      cancelAmount !== undefined ? { cancelReason, cancelAmount } : { cancelReason }
+    ),
   });
   const data = await res.json();
 
