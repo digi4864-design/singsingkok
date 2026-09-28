@@ -103,18 +103,19 @@ export async function sendBulkSms(
   phones: string[],
   message: string,
   schedule?: SmsSchedule
-): Promise<{ successCount: number; failCount: number; skipped: boolean }> {
+): Promise<{ successCount: number; failCount: number; skipped: boolean; errorMessages: string[] }> {
   if (!isConfigured()) {
     console.warn("[sms] ALIGO_PROXY_URL/ALIGO_PROXY_SECRET 미설정 - 문자 발송을 건너뜁니다.");
-    return { successCount: 0, failCount: 0, skipped: true };
+    return { successCount: 0, failCount: 0, skipped: true, errorMessages: [] };
   }
 
   const receivers = [...new Set(phones.map((p) => p.replace(/\D/g, "")).filter(Boolean))];
-  if (receivers.length === 0) return { successCount: 0, failCount: 0, skipped: false };
+  if (receivers.length === 0) return { successCount: 0, failCount: 0, skipped: false, errorMessages: [] };
 
   const msgType = getByteLength(message) > 90 ? "LMS" : "SMS";
   let successCount = 0;
   let failCount = 0;
+  const errorMessages: string[] = [];
 
   for (let i = 0; i < receivers.length; i += 1000) {
     const chunk = receivers.slice(i, i + 1000);
@@ -136,11 +137,17 @@ export async function sendBulkSms(
       const data = await res.json();
       successCount += Number(data.success_cnt ?? 0);
       failCount += Number(data.error_cnt ?? chunk.length);
+      // 알리고가 건수와 별도로 실패 사유(message/result_code)를 내려줄 때가 있는데,
+      // 예전엔 건수만 보고 이유는 버렸다 - 관리자가 뭐가 문제인지 알 수 있게 담아둔다.
+      if (Number(data.success_cnt ?? 0) === 0 && data.message) {
+        errorMessages.push(`${data.message}${data.result_code ? ` (코드 ${data.result_code})` : ""}`);
+      }
     } catch (err) {
       console.error("[sms] 대량 발송 중 오류:", err);
       failCount += chunk.length;
+      errorMessages.push(err instanceof Error ? err.message : "알 수 없는 오류");
     }
   }
 
-  return { successCount, failCount, skipped: false };
+  return { successCount, failCount, skipped: false, errorMessages };
 }

@@ -60,10 +60,13 @@ export async function sendSmsAction(_prev: SmsSendState, formData: FormData): Pr
     return { ok: false, message: "문자 발송 기능이 아직 설정되지 않았습니다(관리자에게 문의)." };
   }
 
+  const summary = schedule
+    ? `예약 완료: 대상 ${result.successCount}건 접수 (실패 ${result.failCount}건). 예약 시각에 자동 발송됩니다.`
+    : `발송 완료: 성공 ${result.successCount}건, 실패 ${result.failCount}건`;
+  const reason = [...new Set(result.errorMessages)].join(" / ");
+
   return {
     ok: result.failCount === 0,
-    message: schedule
-      ? `예약 완료: 대상 ${result.successCount}건 접수 (실패 ${result.failCount}건). 예약 시각에 자동 발송됩니다.`
-      : `발송 완료: 성공 ${result.successCount}건, 실패 ${result.failCount}건`,
+    message: reason ? `${summary}\n사유: ${reason}` : summary,
   };
 }

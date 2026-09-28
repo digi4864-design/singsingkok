@@ -102,7 +102,9 @@ export function SmsForm({ users }: { users: { id: string; name: string | null; p
           문자 발송
         </button>
         {state.message && (
-          <p className={`mt-3 text-sm ${state.ok ? "text-green-700" : "text-red-600"}`}>{state.message}</p>
+          <p className={`mt-3 text-sm whitespace-pre-line ${state.ok ? "text-green-700" : "text-red-600"}`}>
+            {state.message}
+          </p>
         )}
       </div>
     </form>
