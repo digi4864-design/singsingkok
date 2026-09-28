@@ -7,6 +7,7 @@ import { TrackPurchase } from "@/components/TrackPurchase";
 import { getCourierTrackingUrl } from "@/lib/courierTracking";
 import { auth } from "@/lib/auth";
 import { OrderActions } from "./OrderActions";
+import { CancelItemButton } from "./CancelItemButton";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: "결제대기",
@@ -17,6 +18,10 @@ const STATUS_LABEL: Record<string, string> = {
   RETURN_REQUESTED: "반품요청",
   CANCELED: "취소됨",
 };
+
+// OrderActions/actions.ts의 전체취소 가능 상태와 동일한 기준 - 배송 준비 전까지만
+// 상품 하나만 골라 취소할 수 있다.
+const SELF_CANCELABLE_STATUSES = new Set(["PAID", "PREPARING"]);
 
 const SHIPMENT_STATUS_LABEL: Record<string, string> = {
   READY: "배송 준비 중",
@@ -108,14 +113,26 @@ export default async function OrderConfirmationPage(props: PageProps<"/orders/[i
 
       <ul className="divide-y divide-gray-200 border-t border-b border-gray-200 text-sm mb-6">
         {order.items.map((item) => (
-          <li key={item.id} className="py-3 flex justify-between">
+          <li key={item.id} className="py-3 flex justify-between items-start">
             <div>
-              <p className="text-gray-800">{item.productName}</p>
+              <p className={item.canceledAt ? "text-gray-400 line-through" : "text-gray-800"}>
+                {item.productName}
+              </p>
               <p className="text-xs text-gray-500">
                 {item.optionName} × {item.quantity}
               </p>
+              {item.canceledAt ? (
+                <p className="text-xs text-red-400 mt-1">
+                  취소됨 · {formatWon(item.canceledAmount ?? 0)} 환불
+                </p>
+              ) : (
+                isOwner &&
+                SELF_CANCELABLE_STATUSES.has(order.status) && <CancelItemButton orderItemId={item.id} />
+              )}
             </div>
-            <p className="text-gray-900 font-medium">{formatWon(item.lineTotal)}</p>
+            <p className={item.canceledAt ? "text-gray-400 line-through" : "text-gray-900 font-medium"}>
+              {formatWon(item.lineTotal)}
+            </p>
           </li>
         ))}
       </ul>

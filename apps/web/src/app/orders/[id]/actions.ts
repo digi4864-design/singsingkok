@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { refreshMembershipTier } from "@/lib/updateMembership";
 import { refundPointsForOrder } from "@/lib/points";
 import { cancelTossPayment } from "@/lib/tossPayment";
+import { cancelOrderItem } from "@/lib/orderItemCancel";
 
 async function requireOwnOrder(orderId: string) {
   const session = await auth();
@@ -103,6 +104,48 @@ export async function cancelPaymentAction(
       ? "결제가 취소되었습니다. 결제하신 수단으로 환불되며, 카드사에 따라 영업일 기준 며칠 걸릴 수 있어요."
       : "주문이 취소되었습니다. 입금하신 금액은 확인 후 계좌로 환불해드리겠습니다.",
   };
+}
+
+// 한 주문에 상품이 여러 개일 때 그중 하나만 골라 취소할 수 있게 한다(예: 품절 상품
+// 하나만 빼고 나머지는 그대로 받고 싶을 때). 전체취소와 동일하게 배송 준비 전
+// 단계까지만 가능하며, 실제 계산/부분환불 로직은 관리자 화면과 공유한다.
+export async function cancelOrderItemAction(
+  _prev: CancelPaymentState,
+  formData: FormData
+): Promise<CancelPaymentState> {
+  const orderItemId = String(formData.get("orderItemId"));
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    select: { orderId: true },
+  });
+  if (!item) {
+    return { ok: false, message: "주문 상품을 찾을 수 없습니다." };
+  }
+
+  let order;
+  try {
+    order = await requireOwnOrder(item.orderId);
+  } catch {
+    return { ok: false, message: "주문을 찾을 수 없습니다." };
+  }
+
+  if (!SELF_CANCELABLE_STATUSES.has(order.status)) {
+    return {
+      ok: false,
+      message: "배송 준비 중까지의 주문만 직접 취소할 수 있습니다. 이미 배송이 시작됐다면 반품/교환을 요청해주세요.",
+    };
+  }
+
+  const result = await cancelOrderItem(orderItemId, "고객 요청 부분취소");
+  if (!result.ok) {
+    return { ok: false, message: result.message ?? "결제 취소 처리 중 문제가 발생했습니다. 고객센터로 문의해주세요." };
+  }
+
+  revalidatePath(`/orders/${item.orderId}`);
+  revalidatePath("/mypage");
+
+  return { ok: true, message: "선택한 상품이 취소되었습니다. 결제하신 수단으로 환불됩니다." };
 }
 
 export interface ReturnRequestState {
