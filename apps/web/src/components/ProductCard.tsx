@@ -28,56 +28,53 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group block relative rounded-xl overflow-hidden bg-gray-100 aspect-square transition-transform active:scale-[0.97]"
+      className="group flex flex-col gap-2.5 active:opacity-90 transition-opacity"
     >
-      {product.thumbnailUrl ? (
-        <Image
-          src={product.thumbnailUrl}
-          alt={product.name}
-          fill
-          sizes="(max-width: 768px) 50vw, 25vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">
-          이미지 준비중
-        </div>
-      )}
+      <div className="relative rounded-xl overflow-hidden bg-sand aspect-square">
+        {product.thumbnailUrl ? (
+          <Image
+            src={product.thumbnailUrl}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 50vw, 25vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-foreground/30 text-sm">
+            이미지 준비중
+          </div>
+        )}
 
-      {soldOut && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-          <span className="text-white text-sm font-medium">품절</span>
-        </div>
-      )}
+        {soldOut && (
+          <div className="absolute inset-0 bg-background/85 flex items-center justify-center">
+            <span className="text-foreground/70 text-sm font-medium">품절</span>
+          </div>
+        )}
 
-      <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary text-white">
-          무료배송
-        </span>
+        <div className="absolute top-2 right-2">
+          <WishlistButton productId={product.id} initialWishlisted={product.isWishlisted} size="sm" />
+        </div>
       </div>
 
-      <div className="absolute top-2 right-2">
-        <WishlistButton productId={product.id} initialWishlisted={product.isWishlisted} size="sm" />
-      </div>
-
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pt-8 pb-2.5">
-        <p className="text-white text-sm font-medium line-clamp-2 drop-shadow">{product.name}</p>
+      <div className="flex flex-col gap-1">
+        <p className="text-[15px] font-medium text-foreground line-clamp-2">{product.name}</p>
         {!!product.reviewCount && (
-          <p className="text-amber-300 text-xs font-medium mt-0.5">
-            ★ {product.avgRating!.toFixed(1)} <span className="text-gray-300">({product.reviewCount})</span>
+          <p className="text-xs text-gold font-medium">
+            ★ {product.avgRating!.toFixed(1)} <span className="text-foreground/40">({product.reviewCount})</span>
           </p>
         )}
-        <div className="mt-1 flex items-baseline gap-1.5">
-          {hasDiscount && <span className="text-amber-400 text-sm font-bold">{discountPercent}%</span>}
-          <span className="text-white font-bold">
+        <div className="flex items-baseline gap-1.5">
+          {hasDiscount && <span className="text-gold text-sm font-bold">{discountPercent}%</span>}
+          <span className="font-bold text-foreground">
             {product.minPrice !== null ? formatWon(product.minPrice) : "가격 문의"}
           </span>
         </div>
         {hasDiscount && (
-          <span className="text-gray-300 text-xs line-through">
+          <span className="text-foreground/40 text-xs line-through">
             {formatWon(product.compareAtPrice!)}
           </span>
         )}
+        <span className="text-xs text-foreground/50">무료배송</span>
       </div>
     </Link>
   );

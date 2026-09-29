@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "신선한 농축산물을 산지에서 바로 받아보세요",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#16803c",
+    background_color: "#FAF7EF",
+    theme_color: "#2F5D3F",
     icons: [
       {
         src: "/icon.svg",

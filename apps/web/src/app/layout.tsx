@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Gowun_Batang, IBM_Plex_Sans_KR } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart-context";
@@ -12,13 +12,15 @@ import { Logo } from "@/components/Logo";
 import { MetaPixel } from "@/components/MetaPixel";
 import { prisma } from "@farm-mall/db";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const gowunBatang = Gowun_Batang({
+  variable: "--font-gowun-batang",
+  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexSansKR = IBM_Plex_Sans_KR({
+  variable: "--font-plex-kr",
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -59,7 +61,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#16803c",
+  themeColor: "#2F5D3F",
 };
 
 // 루트 레이아웃이 DB(StoreSetting)를 조회하므로, 빌드 시 정적 프리렌더링을 시도하지 않도록 강제한다.
@@ -76,14 +78,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${gowunBatang.variable} ${plexSansKR.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <MetaPixel />
         <PwaRegister />
         <CartProvider>
           <InstallPrompt />
-          <header className="border-b border-gray-200">
+          <header className="border-b border-sand">
             <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
               <Link
                 href="/"
@@ -91,30 +93,30 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               >
                 <Logo />
               </Link>
-              <nav className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 whitespace-nowrap overflow-x-auto">
+              <nav className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-foreground/60 whitespace-nowrap overflow-x-auto">
                 <Link href="/wishlist" className="hidden sm:inline hover:text-primary">
                   찜
                 </Link>
                 <AuthHeader />
-                <span className="text-gray-300">|</span>
+                <span className="text-sand">|</span>
                 <CartBadge />
               </nav>
             </div>
           </header>
           <div className="flex-1 pb-16 md:pb-0">{children}</div>
-          <footer className="border-t border-gray-200 mt-16">
-            <div className="max-w-6xl mx-auto px-4 py-8 text-xs text-gray-400 space-y-3">
+          <footer className="border-t border-sand mt-16">
+            <div className="max-w-6xl mx-auto px-4 py-8 text-xs text-foreground/50 space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>싱싱콕 · 문의: {setting?.contactPhone ?? "준비 중"}</span>
-                <span className="text-gray-300">|</span>
+                <span className="text-sand">|</span>
                 <Link href="/orders/lookup" className="hover:text-primary">
                   비회원 주문조회
                 </Link>
-                <span className="text-gray-300">|</span>
+                <span className="text-sand">|</span>
                 <Link href="/terms" className="hover:text-primary">
                   이용약관
                 </Link>
-                <span className="text-gray-300">|</span>
+                <span className="text-sand">|</span>
                 <Link href="/privacy" className="hover:text-primary">
                   개인정보처리방침
                 </Link>

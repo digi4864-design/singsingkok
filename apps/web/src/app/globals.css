@@ -2,10 +2,13 @@
 
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
-  --primary: #16803c;
-  --primary-hover: #146c33;
+  --background: #faf7ef;
+  --foreground: #23281d;
+  --primary: #2f5d3f;
+  --primary-hover: #26492f;
+  --forest: #1e3a2b;
+  --sand: #efe9da;
+  --gold: #a8651e;
 }
 
 @theme inline {
@@ -13,12 +16,22 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-forest: var(--forest);
+  --color-sand: var(--sand);
+  --color-gold: var(--gold);
+  --font-sans: var(--font-plex-kr);
+  --font-serif: var(--font-gowun-batang);
+}
+
+/* 한글은 낱말 중간이 아니라 어절 단위로 줄바꿈되어야 부자연스럽게 끊기지 않는다. */
+html {
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-plex-kr), "IBM Plex Sans KR", sans-serif;
+  line-height: 1.6;
 }

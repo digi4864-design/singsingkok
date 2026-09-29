@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@farm-mall/db";
 import { ProductCard } from "@/components/ProductCard";
@@ -5,7 +6,6 @@ import { PromoBanner } from "@/components/PromoBanner";
 import { PromoPopup } from "@/components/PromoPopup";
 import { BulkOrderBanner } from "@/components/BulkOrderBanner";
 import { getStorefrontName } from "@/lib/productDisplay";
-import { categoryIcon } from "@/lib/categoryIcons";
 import { auth } from "@/lib/auth";
 import { getHomepageSharedData } from "@/lib/homepageData";
 
@@ -77,6 +77,7 @@ export default async function HomePage({
 
   const { categories, featuredProducts, setting, categorySections } = shared;
   const reviewStats = new Map(shared.reviewStatsEntries);
+  const heroImage = featuredProducts.find((p) => p.thumbnailUrl)?.thumbnailUrl ?? null;
 
   const firstPurchaseCouponEligible = Boolean(
     currentUser?.hasFirstPurchaseCoupon && !currentUser?.firstPurchaseCouponUsed
@@ -127,6 +128,23 @@ export default async function HomePage({
       )}
       {setting?.bulkOrderBannerEnabled && <BulkOrderBanner />}
       {isDefaultView && <PromoPopup isLoggedIn={Boolean(session?.user)} />}
+      {isDefaultView && (
+        <section className="bg-forest">
+          <div className="max-w-6xl mx-auto px-4 py-14 md:py-16 flex flex-col md:flex-row items-center gap-10 md:gap-14">
+            <div className="flex-1 flex flex-col gap-4 md:gap-5">
+              <h1 className="font-serif font-bold text-3xl md:text-[2.75rem] leading-snug text-background whitespace-pre-line">
+                {"쿠팡에서 사과만 팔던 사장님이,\n작은 시장을 차렸습니다"}
+              </h1>
+              <p className="text-lg text-[#C9D2C2]">산지에서 바로, 사장님이 하나씩 골라 보내드려요</p>
+            </div>
+            {heroImage && (
+              <div className="relative w-full md:w-[380px] h-56 md:h-72 rounded-2xl overflow-hidden shrink-0">
+                <Image src={heroImage} alt="" fill sizes="(max-width: 768px) 100vw, 380px" className="object-cover" />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
       <main className="max-w-6xl mx-auto px-4 py-8">
       <form action="/" className="mb-6 flex gap-2 max-w-md">
         {categorySlug && <input type="hidden" name="category" value={categorySlug} />}
@@ -134,46 +152,46 @@ export default async function HomePage({
           name="q"
           defaultValue={q}
           placeholder="상품명 검색"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          className="flex-1 border border-sand rounded-lg px-3 py-2 text-sm"
         />
         <button
           type="submit"
-          className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:border-primary active:scale-95 transition-transform"
+          className="px-4 py-2 text-sm rounded-lg border border-sand hover:border-primary active:scale-95 transition-transform"
         >
           검색
         </button>
       </form>
 
-      <nav className="flex flex-wrap gap-2 mb-6">
+      <nav className="flex flex-wrap gap-6 mb-8 border-b border-sand overflow-x-auto">
         <Link
           href={q ? `/?q=${encodeURIComponent(q)}` : "/"}
-          className={`px-3 py-1.5 rounded-full text-sm border transition-transform active:scale-95 ${
+          className={`pb-3 -mb-px text-[15px] whitespace-nowrap border-b-2 transition-colors ${
             !categorySlug
-              ? "bg-primary text-white border-primary"
-              : "border-gray-300 text-gray-600 hover:border-primary"
+              ? "border-primary text-primary font-semibold"
+              : "border-transparent text-foreground/60 hover:text-foreground"
           }`}
         >
-          🛍️ 전체
+          전체
         </Link>
         {categories.map((c) => (
           <Link
             key={c.id}
             href={`/?category=${c.slug}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`px-3 py-1.5 rounded-full text-sm border transition-transform active:scale-95 ${
+            className={`pb-3 -mb-px text-[15px] whitespace-nowrap border-b-2 transition-colors ${
               categorySlug === c.slug
-                ? "bg-primary text-white border-primary"
-                : "border-gray-300 text-gray-600 hover:border-primary"
+                ? "border-primary text-primary font-semibold"
+                : "border-transparent text-foreground/60 hover:text-foreground"
             }`}
           >
-            {categoryIcon(c.name)} {c.name}
+            {c.name}
           </Link>
         ))}
       </nav>
 
       {isDefaultView && featuredProducts.length > 0 && (
         <section className="mb-10">
-          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-            🌞 지금 제철, 이번 주 베스트
+          <h2 className="font-serif text-xl font-bold text-foreground mb-4">
+            지금 제철, 이번 주 베스트
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {featuredProducts.map((p) => (
@@ -196,13 +214,13 @@ export default async function HomePage({
             ({ category, products: sectionProducts }) =>
               sectionProducts.length > 0 && (
                 <section key={category.id} className="mb-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-1.5">
-                      {categoryIcon(category.name)} {category.name}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-serif text-xl font-bold text-foreground">
+                      {category.name}
                     </h2>
                     <Link
                       href={`/?category=${category.slug}`}
-                      className="text-sm text-gray-400 hover:text-primary"
+                      className="text-sm text-foreground/40 hover:text-primary"
                     >
                       더보기 →
                     </Link>
