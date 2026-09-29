@@ -38,6 +38,20 @@ export async function cancelOrderItem(orderItemId: string, cancelReason: string)
   if (item.canceledAt) return { ok: false, message: "이미 취소된 상품입니다." };
   if (item.order.status === "CANCELED") return { ok: false, message: "이미 취소된 주문입니다." };
 
+  // 관리자 화면과 고객 셀프취소를 거의 동시에 누르는 등 같은 상품에 대해 이 함수가
+  // 동시에 두 번 실행되면, 위의 canceledAt 체크만으로는 둘 다 통과해버려서 토스에
+  // 부분취소가 두 번 나가는 사고가 날 수 있다(실제로 2026-09-29 한 번 발생 - 같은
+  // 상품이 1초 간격으로 두 번 취소되어 고객에게 이중환불됨). 그래서 실제 계산/토스
+  // 호출 전에 canceledAt이 아직 null인 행만 잡아가는 원자적 "선점"을 먼저 한다 -
+  // updateMany가 0건이면 이미 다른 요청이 먼저 처리 중/완료된 것이므로 여기서 중단한다.
+  const claim = await prisma.orderItem.updateMany({
+    where: { id: item.id, canceledAt: null },
+    data: { canceledAt: new Date() },
+  });
+  if (claim.count === 0) {
+    return { ok: false, message: "이미 취소 처리된 상품입니다." };
+  }
+
   const activeItems = item.order.items.filter((i) => !i.canceledAt);
   const isLastActiveItem = activeItems.length <= 1;
   const activeSubtotal = activeItems.reduce((sum, i) => sum + i.lineTotal, 0);
@@ -53,6 +67,8 @@ export async function cancelOrderItem(orderItemId: string, cancelReason: string)
   if (cancelAmount > 0 && payment?.paymentKey && payment.status === "DONE") {
     const result = await cancelTossPayment(payment.paymentKey, cancelReason, cancelAmount);
     if (!result.ok) {
+      // 선점만 해두고 실제 환불은 실패한 경우, 취소된 것처럼 남지 않도록 선점을 풀어준다.
+      await prisma.orderItem.update({ where: { id: item.id }, data: { canceledAt: null } });
       return { ok: false, message: result.message ?? "결제 취소 처리 중 문제가 발생했습니다." };
     }
   }
@@ -60,7 +76,7 @@ export async function cancelOrderItem(orderItemId: string, cancelReason: string)
   await prisma.$transaction([
     prisma.orderItem.update({
       where: { id: item.id },
-      data: { canceledAt: new Date(), canceledAmount: cancelAmount },
+      data: { canceledAmount: cancelAmount },
     }),
     prisma.order.update({
       where: { id: item.orderId },
