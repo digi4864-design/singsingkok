@@ -77,7 +77,12 @@ export default async function HomePage({
 
   const { categories, featuredProducts, setting, categorySections } = shared;
   const reviewStats = new Map(shared.reviewStatsEntries);
-  const heroImage = featuredProducts.find((p) => p.thumbnailUrl)?.thumbnailUrl ?? null;
+  // 히어로 문구가 "사과만 팔던 사장님" 창업 스토리라, 그때그때 바뀌는 제철 베스트 순서에
+  // 휘둘리지 않고 항상 사과 사진이 뜨도록 명시적으로 찾는다(없으면 다른 제철 상품으로 대체).
+  const heroImage =
+    featuredProducts.find((p) => p.name.includes("사과") && p.thumbnailUrl)?.thumbnailUrl ??
+    featuredProducts.find((p) => p.thumbnailUrl)?.thumbnailUrl ??
+    null;
 
   const firstPurchaseCouponEligible = Boolean(
     currentUser?.hasFirstPurchaseCoupon && !currentUser?.firstPurchaseCouponUsed
