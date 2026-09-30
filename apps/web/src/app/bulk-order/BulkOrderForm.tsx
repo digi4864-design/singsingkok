@@ -58,10 +58,10 @@ export function BulkOrderForm() {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">희망 수량</label>
+          <label className="block text-xs text-gray-500 mb-1">희망 수량 · 납품 주기</label>
           <input
             name="quantity"
-            placeholder="예: 30개 내외"
+            placeholder="예: 매주 30개, 또는 1회 100개"
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
         </div>
@@ -71,7 +71,7 @@ export function BulkOrderForm() {
         <textarea
           name="message"
           rows={3}
-          placeholder="배송 희망일, 예산, 포장 요청사항 등 자유롭게 남겨주세요."
+          placeholder="정기납품 희망 시 배송 요일, 배송 희망일, 예산, 포장 요청사항 등 자유롭게 남겨주세요."
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
       </div>
