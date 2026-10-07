@@ -2,6 +2,7 @@ import { prisma } from "@farm-mall/db";
 import { fetchChoigozipStockInfo, rehostInlineDescriptionImages } from "@farm-mall/sync";
 import { deactivateFullySoldOutProducts } from "./catalogMaintenance";
 import { notifyRestockSubscribers } from "./push";
+import { sendBulkSms } from "./sms";
 
 // 설명에 박힌 이미지 재호스팅(압축+업로드)이 추가되면서 상품당 메모리 사용량이 커졌다.
 // 동시성 5로 큰 이미지 여러 개를 한꺼번에 처리하면 서버리스 함수 메모리 한도에 걸려
@@ -41,6 +42,7 @@ export interface StockSyncSummary {
   matched: number;
   optionsUpdated: number;
   productsDeactivated: number;
+  deactivatedNames: string[];
 }
 
 // 최고집 공개 API로 옵션별 품절 여부와 상품 상세설명/공지사항을 매일 최신 상태로 맞춘다.
@@ -66,16 +68,36 @@ export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
   let optionsUpdated = 0;
 
   await mapWithConcurrency(products, CONCURRENCY, async (product) => {
-    const info = await withTimeout(
+    const result = await withTimeout(
       fetchChoigozipStockInfo(product.name),
       PER_PRODUCT_TIMEOUT_MS,
       product.name
     ).catch((err) => {
+      // 조회 자체가 실패(네트워크/타임아웃/API 오류)한 경우 - "최고집에 없다"와 구분해야
+      // 하므로 null로 표시하고 이 상품은 그냥 건드리지 않는다(다음 배치에서 다시 시도).
       console.error(`최고집 재고 조회 실패 (${product.name}):`, err);
       return null;
     });
-    if (!info) return;
+    if (result === null) return;
+
+    if (!result.found) {
+      // 검색 자체는 성공했는데 최고집 어디에도 이 상품이 없다 - 단종/시즌아웃으로 보고
+      // 모든 옵션을 품절 처리한다. 이렇게 하면 아래 deactivateFullySoldOutProducts()가
+      // 이 상품을 자동으로 비공개 전환해준다(사람이 매번 최고집을 뒤져 확인하지 않아도 됨).
+      const hasAnyAvailable = product.options.some((o) => o.isAvailable);
+      if (hasAnyAvailable) {
+        await prisma.productOption
+          .updateMany({ where: { productId: product.id }, data: { isAvailable: false } })
+          .then(() => {
+            optionsUpdated += product.options.length;
+          })
+          .catch((err) => console.error(`옵션 전체 품절 처리 실패 (${product.name}):`, err));
+      }
+      return;
+    }
+
     matched++;
+    const info = result.info;
 
     // 최고집 원본 설명에 사진이 base64로 통째로 박혀 들어오는 경우가 있어(상품 하나에 최대
     // 9MB, 실제 발견: "홈마카세" 9MB 등 40개 상품) 그대로 저장하면 상품 상세페이지 하나가
@@ -136,7 +158,28 @@ export async function runStockAndDescriptionSync(): Promise<StockSyncSummary> {
     }
   });
 
-  const productsDeactivated = await deactivateFullySoldOutProducts();
+  const deactivatedNames = await deactivateFullySoldOutProducts();
 
-  return { checked: products.length, matched, optionsUpdated, productsDeactivated };
+  // 자동으로 비공개 처리된 상품이 있으면 관리자에게 문자로 알린다 - 조용히 사라지면 모르고
+  // 지나칠 수 있으니, 잘못 빠진 게 있으면 바로 되돌릴 수 있게 알려준다. 아무것도 안
+  // 바뀐 날은 매일 문자가 오면 피곤하니 보내지 않는다.
+  if (deactivatedNames.length > 0) {
+    const setting = await prisma.storeSetting.findUnique({ where: { id: "default" } });
+    if (setting?.contactPhone) {
+      const list = deactivatedNames.slice(0, 10).join(", ");
+      const more = deactivatedNames.length > 10 ? ` 외 ${deactivatedNames.length - 10}건` : "";
+      await sendBulkSms(
+        [setting.contactPhone],
+        `[싱싱콕] 최고집 자동점검 결과 ${deactivatedNames.length}개 상품이 품절/단종으로 확인되어 자동 비공개 처리했습니다: ${list}${more}. 잘못 내려간 상품이 있으면 관리자 화면에서 다시 공개해주세요.`
+      ).catch((err) => console.error("자동 품절 안내 문자 발송 실패:", err));
+    }
+  }
+
+  return {
+    checked: products.length,
+    matched,
+    optionsUpdated,
+    productsDeactivated: deactivatedNames.length,
+    deactivatedNames,
+  };
 }

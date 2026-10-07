@@ -79,8 +79,13 @@ export default async function HomePage({
   const reviewStats = new Map(shared.reviewStatsEntries);
   // 히어로 문구가 "사과만 팔던 사장님" 창업 스토리라, 그때그때 바뀌는 제철 베스트 순서에
   // 휘둘리지 않고 항상 사과 사진이 뜨도록 명시적으로 찾는다(없으면 다른 제철 상품으로 대체).
+  // "시나노골드"처럼 품종명만 쓰고 "사과"라는 글자가 안 들어간 상품도 있어 품종명 몇 개를
+  // 같이 체크한다 - 글자 하나만 보면 그 상품이 품절돼 제철목록에서 빠질 때 히어로 사진이
+  // 엉뚱한 상품(예: 복숭아)으로 바뀌어버리는 문제가 실제로 있었다.
+  const APPLE_KEYWORDS = ["사과", "홍로", "시나노", "부사", "감홍", "아오리"];
   const heroImage =
-    featuredProducts.find((p) => p.name.includes("사과") && p.thumbnailUrl)?.thumbnailUrl ??
+    featuredProducts.find((p) => APPLE_KEYWORDS.some((k) => p.name.includes(k)) && p.thumbnailUrl)
+      ?.thumbnailUrl ??
     featuredProducts.find((p) => p.thumbnailUrl)?.thumbnailUrl ??
     null;
 
