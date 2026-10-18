@@ -7,17 +7,10 @@ import { prisma } from "@farm-mall/db";
 import { compressImage } from "@farm-mall/sync";
 import { computeSellingPrice } from "@/lib/pricing";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { MAX_FILE_SIZE } from "./imageValidation";
 
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (업로드 후 압축되므로 원본은 넉넉하게 허용)
 const THUMB_MAX_WIDTH = 1200;
 const DETAIL_MAX_WIDTH = 1600;
-
-// 폴더째로 선택하면 사진 외의 파일(썸네일 캐시, 설명 텍스트 등)이 섞여 들어오기 쉬우므로
-// 이미지가 아니거나 너무 큰 파일은 전체를 중단시키지 않고 건너뛴다.
-function isUploadableImage(file: File): boolean {
-  return ALLOWED_IMAGE_TYPES.has(file.type) && file.size <= MAX_FILE_SIZE;
-}
 
 async function saveUploadedBuffer(productId: string, raw: Buffer, prefix: string): Promise<string> {
   const maxWidth = prefix.includes("thumb") ? THUMB_MAX_WIDTH : DETAIL_MAX_WIDTH;
@@ -31,8 +24,11 @@ async function saveUploadedBuffer(productId: string, raw: Buffer, prefix: string
   return blob.url;
 }
 
-async function saveUploadedFile(productId: string, file: File, prefix: string): Promise<string> {
-  return saveUploadedBuffer(productId, Buffer.from(await file.arrayBuffer()), prefix);
+// 스테이징 블롭(브라우저가 직접 올린 원본, 압축 전)을 fetch로 내려받아 압축/최종 업로드한다.
+async function fetchAndSaveStagedBlob(productId: string, stagingUrl: string, prefix: string): Promise<string> {
+  const res = await fetch(stagingUrl);
+  if (!res.ok) throw new Error(`이미지를 내려받지 못했습니다. (status ${res.status})`);
+  return saveUploadedBuffer(productId, Buffer.from(await res.arrayBuffer()), prefix);
 }
 
 export interface SaveState {
@@ -152,16 +148,16 @@ export interface UploadState {
 
 const MAX_THUMBNAILS = 5;
 
+// blobUrls: 브라우저가 Vercel Blob에 이미 직접 올려둔 원본(압축 전) 이미지들의 URL -
+// stageUpload.ts의 stageFilesToBlob()이 생성한다. invalidCount는 클라이언트가 올리기 전에
+// 걸러낸(이미지가 아니거나 너무 큰) 파일 수로, 안내 메시지에만 쓰인다.
 export async function uploadThumbnailAction(
-  _prev: UploadState,
-  formData: FormData
+  productId: string,
+  blobUrls: string[],
+  invalidCount: number
 ): Promise<UploadState> {
   await requireAdmin();
-  const productId = String(formData.get("productId"));
-  const rawFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  const uploadedFiles = rawFiles.filter(isUploadableImage);
-  const invalidCount = rawFiles.length - uploadedFiles.length;
-  if (uploadedFiles.length === 0) {
+  if (blobUrls.length === 0) {
     return {
       ok: false,
       message:
@@ -176,15 +172,17 @@ export async function uploadThumbnailAction(
       where: { id: productId },
       select: { thumbnailImages: true },
     });
-    const remainingSlots = MAX_THUMBNAILS - product.thumbnailImages.length;
+    const remainingSlots = Math.max(MAX_THUMBNAILS - product.thumbnailImages.length, 0);
     if (remainingSlots <= 0) {
+      await Promise.all(blobUrls.map((u) => del(u).catch(() => {})));
       return { ok: false, message: `썸네일은 최대 ${MAX_THUMBNAILS}장까지 등록할 수 있습니다.` };
     }
-    const filesToUpload = uploadedFiles.slice(0, remainingSlots);
+    const toUpload = blobUrls.slice(0, remainingSlots);
+    const skippedForLimit = blobUrls.length - toUpload.length;
 
     const newUrls: string[] = [];
-    for (const file of filesToUpload) {
-      newUrls.push(await saveUploadedFile(productId, file, "manual-thumb"));
+    for (const stagingUrl of toUpload) {
+      newUrls.push(await fetchAndSaveStagedBlob(productId, stagingUrl, "manual-thumb"));
     }
 
     const thumbnailImages = [...product.thumbnailImages, ...newUrls];
@@ -195,7 +193,8 @@ export async function uploadThumbnailAction(
       data: { thumbnailImages, thumbnailUrl: thumbnailImages[0], thumbnailSourceKey: null },
     });
 
-    const skippedForLimit = uploadedFiles.length - filesToUpload.length;
+    await Promise.all(blobUrls.map((u) => del(u).catch(() => {})));
+
     const notes: string[] = [];
     if (skippedForLimit > 0) notes.push(`최대 ${MAX_THUMBNAILS}장 제한으로 ${skippedForLimit}장 건너뜀`);
     if (invalidCount > 0) notes.push(`이미지가 아닌 파일 ${invalidCount}개 건너뜀`);
@@ -205,9 +204,10 @@ export async function uploadThumbnailAction(
     revalidatePath("/");
     return {
       ok: true,
-      message: `${filesToUpload.length}장 업로드되었습니다.${notes.length > 0 ? ` (${notes.join(", ")})` : ""}`,
+      message: `${newUrls.length}장 업로드되었습니다.${notes.length > 0 ? ` (${notes.join(", ")})` : ""}`,
     };
   } catch (err) {
+    await Promise.all(blobUrls.map((u) => del(u).catch(() => {})));
     return { ok: false, message: (err as Error).message };
   }
 }
@@ -233,15 +233,12 @@ export async function removeThumbnailImageAction(formData: FormData) {
 }
 
 export async function uploadDetailImagesAction(
-  _prev: UploadState,
-  formData: FormData
+  productId: string,
+  blobUrls: string[],
+  invalidCount: number
 ): Promise<UploadState> {
   await requireAdmin();
-  const productId = String(formData.get("productId"));
-  const rawFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  const uploadedFiles = rawFiles.filter(isUploadableImage);
-  const invalidCount = rawFiles.length - uploadedFiles.length;
-  if (uploadedFiles.length === 0) {
+  if (blobUrls.length === 0) {
     return {
       ok: false,
       message:
@@ -257,25 +254,28 @@ export async function uploadDetailImagesAction(
       select: { images: true },
     });
     const newUrls: string[] = [];
-    for (const file of uploadedFiles) {
-      newUrls.push(await saveUploadedFile(productId, file, "manual-detail"));
+    for (const stagingUrl of blobUrls) {
+      newUrls.push(await fetchAndSaveStagedBlob(productId, stagingUrl, "manual-detail"));
     }
 
     await prisma.product.update({
       where: { id: productId },
       data: { images: [...product.images, ...newUrls] },
     });
+
+    await Promise.all(blobUrls.map((u) => del(u).catch(() => {})));
+
+    revalidatePath(`/admin/products/${productId}`);
+    revalidatePath("/admin/products");
+    revalidatePath("/");
+    return {
+      ok: true,
+      message: `${newUrls.length}개 이미지가 추가되었습니다.${invalidCount > 0 ? ` (이미지가 아닌 파일 ${invalidCount}개 건너뜀)` : ""}`,
+    };
   } catch (err) {
+    await Promise.all(blobUrls.map((u) => del(u).catch(() => {})));
     return { ok: false, message: (err as Error).message };
   }
-
-  revalidatePath(`/admin/products/${productId}`);
-  revalidatePath("/admin/products");
-  revalidatePath("/");
-  return {
-    ok: true,
-    message: `${uploadedFiles.length}개 이미지가 추가되었습니다.${invalidCount > 0 ? ` (이미지가 아닌 파일 ${invalidCount}개 건너뜀)` : ""}`,
-  };
 }
 
 export async function removeDetailImageAction(formData: FormData) {
