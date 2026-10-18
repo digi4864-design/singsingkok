@@ -1,5 +1,6 @@
 "use server";
 
+import AdmZip from "adm-zip";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
@@ -18,8 +19,7 @@ function isUploadableImage(file: File): boolean {
   return ALLOWED_IMAGE_TYPES.has(file.type) && file.size <= MAX_FILE_SIZE;
 }
 
-async function saveUploadedFile(productId: string, file: File, prefix: string): Promise<string> {
-  const raw = Buffer.from(await file.arrayBuffer());
+async function saveUploadedBuffer(productId: string, raw: Buffer, prefix: string): Promise<string> {
   const maxWidth = prefix.includes("thumb") ? THUMB_MAX_WIDTH : DETAIL_MAX_WIDTH;
   const { buffer, ext, contentType } = await compressImage(raw, maxWidth);
   const filename = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
@@ -29,6 +29,10 @@ async function saveUploadedFile(productId: string, file: File, prefix: string): 
     contentType,
   });
   return blob.url;
+}
+
+async function saveUploadedFile(productId: string, file: File, prefix: string): Promise<string> {
+  return saveUploadedBuffer(productId, Buffer.from(await file.arrayBuffer()), prefix);
 }
 
 export interface SaveState {
@@ -291,4 +295,139 @@ export async function removeDetailImageAction(formData: FormData) {
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/admin/products");
   revalidatePath("/");
+}
+
+const MAX_ZIP_SIZE = 150 * 1024 * 1024; // 150MB (압축 전 원본 여러 장이 들어있을 수 있어 넉넉하게 허용)
+const THUMB_FOLDER_RE = [/^썸네일$/i, /thumbnail/i, /^thumb$/i];
+const DETAIL_FOLDER_RE = [/^상세페이지$/i, /^상세$/i, /detail/i];
+
+function isImageEntryName(name: string): boolean {
+  return /\.(jpe?g|png|webp|gif)$/i.test(name);
+}
+
+// 압축파일 안 경로(예: "상품/썸네일/1.jpg")의 폴더 구간 중 하나라도 패턴에 맞으면 매치로 본다 -
+// 폴더를 통째로 압축하면 상위에 상품명 폴더가 한 겹 더 씌워져 들어오는 경우가 많기 때문.
+function matchesAnyFolder(pathSegments: string[], patterns: RegExp[]): boolean {
+  return pathSegments.some((seg) => patterns.some((p) => p.test(seg)));
+}
+
+export async function uploadProductZipAction(
+  _prev: UploadState,
+  formData: FormData
+): Promise<UploadState> {
+  await requireAdmin();
+  const productId = String(formData.get("productId"));
+  const zipFile = formData.get("zipFile");
+
+  if (!(zipFile instanceof File) || zipFile.size === 0) {
+    return { ok: false, message: "압축파일(zip)을 선택해주세요." };
+  }
+  if (!zipFile.name.toLowerCase().endsWith(".zip")) {
+    return { ok: false, message: "zip 압축파일만 업로드할 수 있습니다." };
+  }
+  if (zipFile.size > MAX_ZIP_SIZE) {
+    return { ok: false, message: "압축파일이 너무 큽니다. (최대 150MB)" };
+  }
+
+  let entries: AdmZip.IZipEntry[];
+  try {
+    const zipBuffer = Buffer.from(await zipFile.arrayBuffer());
+    entries = new AdmZip(zipBuffer).getEntries();
+  } catch {
+    return { ok: false, message: "압축파일을 읽을 수 없습니다. zip 형식인지 확인해주세요." };
+  }
+
+  const thumbEntries: AdmZip.IZipEntry[] = [];
+  const detailEntries: AdmZip.IZipEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const name = entry.entryName;
+    const baseName = name.split("/").pop() ?? name;
+    if (name.includes("__MACOSX") || baseName.startsWith(".")) continue;
+    if (!isImageEntryName(baseName)) continue;
+    if (entry.header.size > MAX_FILE_SIZE) continue;
+
+    const folderSegments = name.split("/").slice(0, -1);
+    if (matchesAnyFolder(folderSegments, THUMB_FOLDER_RE)) {
+      thumbEntries.push(entry);
+    } else if (matchesAnyFolder(folderSegments, DETAIL_FOLDER_RE)) {
+      detailEntries.push(entry);
+    }
+  }
+
+  if (thumbEntries.length === 0 && detailEntries.length === 0) {
+    return {
+      ok: false,
+      message:
+        '압축파일 안에서 "썸네일" 또는 "상세페이지" 폴더를 찾지 못했습니다. 폴더 이름을 확인해주세요.',
+    };
+  }
+
+  // 썸네일 폴더만 있으면 같은 이미지를 상세페이지에도 그대로 등록한다.
+  const detailSourceEntries = detailEntries.length > 0 ? detailEntries : thumbEntries;
+
+  const byEntryName = (a: AdmZip.IZipEntry, b: AdmZip.IZipEntry) =>
+    a.entryName.localeCompare(b.entryName);
+  thumbEntries.sort(byEntryName);
+  detailSourceEntries.sort(byEntryName);
+
+  try {
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { id: productId },
+      select: { thumbnailImages: true, images: true },
+    });
+
+    const notes: string[] = [];
+    let thumbUploadedCount = 0;
+    let detailUploadedCount = 0;
+
+    let thumbnailImages = product.thumbnailImages;
+    if (thumbEntries.length > 0) {
+      const remainingSlots = Math.max(MAX_THUMBNAILS - product.thumbnailImages.length, 0);
+      const toUpload = thumbEntries.slice(0, remainingSlots);
+      const skipped = thumbEntries.length - toUpload.length;
+      if (skipped > 0) notes.push(`썸네일 최대 ${MAX_THUMBNAILS}장 제한으로 ${skipped}장 건너뜀`);
+
+      const newUrls: string[] = [];
+      for (const entry of toUpload) {
+        newUrls.push(await saveUploadedBuffer(productId, entry.getData(), "manual-thumb"));
+      }
+      thumbUploadedCount = newUrls.length;
+      if (newUrls.length > 0) thumbnailImages = [...product.thumbnailImages, ...newUrls];
+    }
+
+    let images = product.images;
+    if (detailSourceEntries.length > 0) {
+      const newUrls: string[] = [];
+      for (const entry of detailSourceEntries) {
+        newUrls.push(await saveUploadedBuffer(productId, entry.getData(), "manual-detail"));
+      }
+      detailUploadedCount = newUrls.length;
+      images = [...product.images, ...newUrls];
+    }
+
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        thumbnailImages,
+        images,
+        ...(thumbUploadedCount > 0
+          ? { thumbnailUrl: thumbnailImages[0], thumbnailSourceKey: null }
+          : {}),
+      },
+    });
+
+    revalidatePath(`/admin/products/${productId}`);
+    revalidatePath("/admin/products");
+    revalidatePath("/");
+    return {
+      ok: true,
+      message: `썸네일 ${thumbUploadedCount}장, 상세페이지 ${detailUploadedCount}장이 등록되었습니다.${
+        notes.length > 0 ? ` (${notes.join(", ")})` : ""
+      }`,
+    };
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
+  }
 }

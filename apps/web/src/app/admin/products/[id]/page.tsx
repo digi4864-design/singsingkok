@@ -13,6 +13,7 @@ import {
 } from "./actions";
 import { ThumbnailUploadForm } from "./ThumbnailUploadForm";
 import { DetailImagesUploadForm } from "./DetailImagesUploadForm";
+import { ZipUploadForm } from "./ZipUploadForm";
 import { ProductInfoForm } from "./ProductInfoForm";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,8 @@ export default async function AdminProductDetailPage(props: PageProps<"/admin/pr
       </p>
 
       <section className="mb-8">
+        <ZipUploadForm productId={product.id} />
+
         <h2 className="text-sm font-semibold text-gray-700 mb-2">
           상품 썸네일 (최대 5장, 첫 번째가 대표 이미지로 쓰입니다)
         </h2>
