@@ -1,7 +1,7 @@
 "use server";
 
 import AdmZip from "adm-zip";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@farm-mall/db";
 import { compressImage } from "@farm-mall/sync";
@@ -311,29 +311,35 @@ function matchesAnyFolder(pathSegments: string[], patterns: RegExp[]): boolean {
   return pathSegments.some((seg) => patterns.some((p) => p.test(seg)));
 }
 
-export async function uploadProductZipAction(
-  _prev: UploadState,
-  formData: FormData
+// 압축파일을 Server Action의 요청 본문으로 직접 보내면 Vercel Functions의 요청 본문 용량
+// 한도(4.5MB, next.config.ts의 bodySizeLimit로는 못 늘림)에 사진 몇 장만 들어가도 바로
+// 걸려 "압축파일 안 사진이 크면 오류난다"는 문제가 생겼다. 그래서 브라우저가 zip을
+// Vercel Blob에 먼저 직접 올리고(용량 제한 없음, handleUploadUrl=/api/admin/blob-upload),
+// 이 액션은 업로드된 zip의 URL만 받아서 서버 쪽에서 fetch로 내려받아 처리한다 - 서버가 자체
+// 요청으로 내려받는 데이터는 저 4.5MB 한도의 대상이 아니다.
+export async function processProductZipAction(
+  productId: string,
+  zipBlobUrl: string
 ): Promise<UploadState> {
   await requireAdmin();
-  const productId = String(formData.get("productId"));
-  const zipFile = formData.get("zipFile");
 
-  if (!(zipFile instanceof File) || zipFile.size === 0) {
-    return { ok: false, message: "압축파일(zip)을 선택해주세요." };
+  let zipBuffer: Buffer;
+  try {
+    const res = await fetch(zipBlobUrl);
+    if (!res.ok) throw new Error(`압축파일을 내려받지 못했습니다. (status ${res.status})`);
+    zipBuffer = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
   }
-  if (!zipFile.name.toLowerCase().endsWith(".zip")) {
-    return { ok: false, message: "zip 압축파일만 업로드할 수 있습니다." };
-  }
-  if (zipFile.size > MAX_ZIP_SIZE) {
+  if (zipBuffer.length > MAX_ZIP_SIZE) {
     return { ok: false, message: "압축파일이 너무 큽니다. (최대 150MB)" };
   }
 
   let entries: AdmZip.IZipEntry[];
   try {
-    const zipBuffer = Buffer.from(await zipFile.arrayBuffer());
     entries = new AdmZip(zipBuffer).getEntries();
   } catch {
+    await del(zipBlobUrl).catch(() => {});
     return { ok: false, message: "압축파일을 읽을 수 없습니다. zip 형식인지 확인해주세요." };
   }
 
@@ -357,6 +363,7 @@ export async function uploadProductZipAction(
   }
 
   if (thumbEntries.length === 0 && detailEntries.length === 0) {
+    await del(zipBlobUrl).catch(() => {});
     return {
       ok: false,
       message:
@@ -418,6 +425,8 @@ export async function uploadProductZipAction(
       },
     });
 
+    await del(zipBlobUrl).catch(() => {});
+
     revalidatePath(`/admin/products/${productId}`);
     revalidatePath("/admin/products");
     revalidatePath("/");
@@ -428,6 +437,7 @@ export async function uploadProductZipAction(
       }`,
     };
   } catch (err) {
+    await del(zipBlobUrl).catch(() => {});
     return { ok: false, message: (err as Error).message };
   }
 }
