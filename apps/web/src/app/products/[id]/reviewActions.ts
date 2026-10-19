@@ -1,25 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { prisma } from "@farm-mall/db";
 import { compressImage } from "@farm-mall/sync";
 import { auth } from "@/lib/auth";
 import { creditReviewReward, REVIEW_REWARD_POINTS } from "@/lib/points";
 
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const MAX_REVIEW_IMAGES = 3;
 const REVIEW_IMAGE_MAX_WIDTH = 1000;
 
-async function uploadReviewImages(productId: string, userId: string, files: File[]): Promise<string[]> {
-  const valid = files
-    .filter((f) => f.size > 0 && ALLOWED_IMAGE_TYPES.has(f.type) && f.size <= MAX_FILE_SIZE)
-    .slice(0, MAX_REVIEW_IMAGES);
-
+// stagingUrls: 브라우저가 Vercel Blob에 이미 직접 올려둔 원본 사진들의 URL
+// (ReviewForm.tsx에서 업로드) - Server Action 요청 본문에 사진을 직접 실어 보내면 Vercel
+// Functions의 4.5MB 한도에 걸려 고화질 사진에서 업로드가 통째로 실패하던 문제를 피하려고
+// URL만 받아서 서버가 fetch로 내려받아 처리한다(관리자 상품이미지 업로드와 동일한 패턴).
+async function uploadReviewImages(
+  productId: string,
+  userId: string,
+  stagingUrls: string[]
+): Promise<string[]> {
   const urls: string[] = [];
-  for (const file of valid) {
-    const raw = Buffer.from(await file.arrayBuffer());
+  for (const stagingUrl of stagingUrls.slice(0, MAX_REVIEW_IMAGES)) {
+    const res = await fetch(stagingUrl);
+    if (!res.ok) continue;
+    const raw = Buffer.from(await res.arrayBuffer());
     const { buffer, ext, contentType } = await compressImage(raw, REVIEW_IMAGE_MAX_WIDTH);
     const filename = `review-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
     const blob = await put(`reviews/${productId}/${userId}/${filename}`, buffer, {
@@ -29,6 +33,7 @@ async function uploadReviewImages(productId: string, userId: string, files: File
     });
     urls.push(blob.url);
   }
+  await Promise.all(stagingUrls.map((u) => del(u).catch(() => {})));
   return urls;
 }
 
@@ -60,8 +65,9 @@ export async function createReviewAction(
     return { ok: false, message: "리뷰 내용은 1000자 이내로 입력해주세요." };
   }
 
-  const files = formData.getAll("images").filter((f): f is File => f instanceof File);
-  const images = files.length > 0 ? await uploadReviewImages(productId, session.user.id, files) : undefined;
+  const stagingUrls = formData.getAll("imageUrls").filter((u): u is string => typeof u === "string" && u.length > 0);
+  const images =
+    stagingUrls.length > 0 ? await uploadReviewImages(productId, session.user.id, stagingUrls) : undefined;
 
   const existing = await prisma.review.findUnique({
     where: { userId_productId: { userId: session.user.id, productId } },

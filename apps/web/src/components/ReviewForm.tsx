@@ -1,16 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { createReviewAction, deleteMyReviewAction, type ReviewState } from "@/app/products/[id]/reviewActions";
 
 const initialState: ReviewState = { ok: false, message: "" };
 
-// 서버가 받아줄 수 있는 전체 요청 용량에는 한도가 있는데(리뷰 폼 전체 기준 여유있게 잡아도
-// 넉넉치 않음), 사진을 고른 뒤 제출 버튼을 눌렀을 때에야 서버에서 거절되면 브라우저가
-// "접속 실패"로만 보여줘서 고객이 원인을 알 수 없다(실제 문의 사례). 사진을 고르는
-// 즉시 브라우저에서 먼저 용량을 확인해 안내한다.
-const MAX_FILE_SIZE_MB = 10;
-const MAX_TOTAL_SIZE_MB = 25;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_FILE_SIZE_MB = 15;
+const MAX_REVIEW_IMAGES = 3;
 
 export function ReviewForm({
   productId,
@@ -23,25 +21,46 @@ export function ReviewForm({
   const [state, formAction, pending] = useActionState(boundAction, initialState);
   const [rating, setRating] = useState(existing?.rating ?? 5);
   const [fileError, setFileError] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-  function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) {
-      setFileError("");
+  // 사진을 고른 즉시 브라우저에서 Vercel Blob으로 직접 올린다(Server Action을 거치지
+  // 않음) - 고화질 사진을 첨부해 제출하면 Server Action 요청 본문이 Vercel Functions의
+  // 4.5MB 한도를 넘어 업로드가 통째로 실패하고, 그 과정에서 입력하던 리뷰 내용까지 같이
+  // 사라지는 문제가 실제로 있었다. 사진은 여기서 먼저 올려 작은 URL만 폼에 담아 제출한다.
+  async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, MAX_REVIEW_IMAGES);
+    if (files.length === 0) return;
+
+    const invalid = files.find((f) => !ALLOWED_IMAGE_TYPES.has(f.type));
+    const tooLarge = files.find((f) => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+    if (invalid) {
+      setFileError("jpg/png/webp/gif 사진만 첨부할 수 있어요.");
+      e.target.value = "";
       return;
     }
-
-    const tooLarge = files.find((f) => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
-    const totalMb = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
-
     if (tooLarge) {
       setFileError(`"${tooLarge.name}" 사진이 ${MAX_FILE_SIZE_MB}MB를 넘어요. 더 작은 사진으로 다시 선택해주세요.`);
       e.target.value = "";
-    } else if (totalMb > MAX_TOTAL_SIZE_MB) {
-      setFileError(`사진 전체 용량이 ${MAX_TOTAL_SIZE_MB}MB를 넘어요(${totalMb.toFixed(1)}MB). 장수를 줄이거나 더 작은 사진으로 선택해주세요.`);
+      return;
+    }
+
+    setFileError("");
+    setUploadingImages(true);
+    try {
+      const uploaded = await Promise.all(
+        files.map((file, i) => {
+          const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+          const path = `review-staging/${productId}-${Date.now()}-${i}.${ext}`;
+          return upload(path, file, { access: "public", handleUploadUrl: "/api/reviews/blob-upload" });
+        })
+      );
+      setImageUrls(uploaded.map((b) => b.url));
+    } catch {
+      setFileError("사진 업로드에 실패했어요. 다시 시도해주세요.");
       e.target.value = "";
-    } else {
-      setFileError("");
+    } finally {
+      setUploadingImages(false);
     }
   }
 
@@ -77,16 +96,23 @@ export function ReviewForm({
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">
-            사진 첨부 (선택, 최대 3장 · 장당 {MAX_FILE_SIZE_MB}MB 이하)
+            사진 첨부 (선택, 최대 {MAX_REVIEW_IMAGES}장 · 장당 {MAX_FILE_SIZE_MB}MB 이하, 고화질도 가능)
           </label>
           <input
             type="file"
-            name="images"
             accept="image/*"
             multiple
+            disabled={uploadingImages}
             onChange={handleFilesChange}
             className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-gray-300 file:text-xs file:bg-white"
           />
+          {imageUrls.map((url) => (
+            <input key={url} type="hidden" name="imageUrls" value={url} />
+          ))}
+          {uploadingImages && <p className="text-xs text-primary mt-1">사진 업로드 중...</p>}
+          {!uploadingImages && imageUrls.length > 0 && (
+            <p className="text-xs text-gray-400 mt-1">{imageUrls.length}장 첨부됨</p>
+          )}
           {fileError && <p className="text-xs text-red-500 mt-1">{fileError}</p>}
         </div>
         {state.message && (
@@ -95,7 +121,7 @@ export function ReviewForm({
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || uploadingImages}
             className="px-4 py-1.5 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-50"
           >
             {existing ? "리뷰 수정" : "리뷰 등록"}
