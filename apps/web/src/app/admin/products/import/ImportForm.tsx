@@ -46,6 +46,12 @@ export function ImportForm() {
           <dd>{state.summary.createdProducts}건</dd>
           <dt>갱신</dt>
           <dd>{state.summary.updatedProducts}건</dd>
+          <dt>카테고리 자동 확인</dt>
+          <dd>{state.summary.categoryAutoAssigned}건</dd>
+          <dt>카테고리 미지정</dt>
+          <dd className={state.summary.categoryUnassigned > 0 ? "text-amber-600 font-medium" : ""}>
+            {state.summary.categoryUnassigned}건
+          </dd>
         </dl>
       )}
     </form>

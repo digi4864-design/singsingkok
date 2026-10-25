@@ -14,6 +14,8 @@ export interface ImportState {
     totalOptions: number;
     createdProducts: number;
     updatedProducts: number;
+    categoryAutoAssigned: number;
+    categoryUnassigned: number;
   };
 }
 
@@ -158,7 +160,7 @@ export async function importProductsAction(
     });
   }
 
-  await applyCategoryRules();
+  const categoryResult = await applyCategoryRules();
 
   await prisma.importRun.update({
     where: { id: importRun.id },
@@ -171,15 +173,22 @@ export async function importProductsAction(
     },
   });
 
+  const categoryNote =
+    categoryResult.unassigned > 0
+      ? ` 카테고리 미지정 ${categoryResult.unassigned}건은 "이미지/카테고리 재점검" 버튼으로 다시 확인해주세요.`
+      : "";
+
   return {
     ok: true,
     message:
-      "업로드가 완료되었습니다. 사진이 없는 상품은 비공개 상태이니, 아래 \"이미지/카테고리 재점검\" 버튼을 눌러 이미지를 동기화해주세요.",
+      `업로드가 완료되었습니다. 사진이 없는 상품은 비공개 상태이니, 아래 "이미지/카테고리 재점검" 버튼을 눌러 이미지를 동기화해주세요.${categoryNote}`,
     summary: {
       totalProducts: products.length,
       totalOptions,
       createdProducts,
       updatedProducts,
+      categoryAutoAssigned: categoryResult.autoAssigned,
+      categoryUnassigned: categoryResult.unassigned,
     },
   };
 }
