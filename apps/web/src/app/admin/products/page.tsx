@@ -25,6 +25,8 @@ export default async function AdminProductsPage({
   const sinceDate = isNewOnly ? new Date(Date.now() - newDaysNum! * 24 * 60 * 60 * 1000) : null;
   const isMissingOrigin = missing === "origin";
   const isMissingDescription = missing === "description";
+  const isMissingImage = missing === "image";
+  const isMissingCategory = missing === "category";
 
   // q(이름 검색)와 missing(원산지/설명 누락) 필터가 둘 다 OR 조건을 쓰기 때문에, 같은
   // 객체에 OR 키를 두 번 스프레드하면 뒤엣것이 앞엣것을 덮어써버린다. AND 배열로 묶어
@@ -44,6 +46,11 @@ export default async function AdminProductsPage({
     ...(sinceDate ? [{ createdAt: { gte: sinceDate } }] : []),
     ...(isMissingOrigin ? [{ OR: [{ origin: null }, { origin: "" }] }] : []),
     ...(isMissingDescription ? [{ OR: [{ description: null }, { description: "" }] }] : []),
+    // thumbnailImages(String[])는 Prisma의 isEmpty 필터가 이 환경에서 실제로 비어있는
+    // 배열을 매칭 못 하는 버그가 있어(실측 확인됨) 쓸 수 없다 - 대신 항상
+    // thumbnailImages[0]과 동일하게 유지되는 스칼라 필드 thumbnailUrl로 판단한다.
+    ...(isMissingImage ? [{ OR: [{ thumbnailUrl: null }, { thumbnailUrl: "" }] }] : []),
+    ...(isMissingCategory ? [{ OR: [{ categoryId: null }, { category: { name: "미지정" } }] }] : []),
   ];
   const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
@@ -101,7 +108,11 @@ export default async function AdminProductsPage({
           ? "⚠ 원산지가 표시되지 않은 상품만 표시 중입니다. 농수산물의 원산지 표시에 관한 법률상 의무사항이니 확인해 입력해주세요."
           : isMissingDescription
             ? "상세설명이 없는 상품만 표시 중입니다."
-            : isNewOnly
+            : isMissingImage
+              ? "📷 사진(썸네일)이 없는 상품만 표시 중입니다. 비공개 상태라면 사진을 등록해야 공개 전환할 수 있습니다."
+              : isMissingCategory
+                ? "🏷 카테고리가 \"미지정\"이거나 아예 없는 상품만 표시 중입니다. 체크박스로 선택해 위 드롭다운에서 올바른 카테고리로 일괄 이동할 수 있습니다."
+                : isNewOnly
               ? `최근 ${newDaysNum}일 이내 등록된 상품만 표시 중입니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다.`
               : "카테고리별로 상품을 공개/비공개 처리할 수 있습니다. 체크박스로 상품을 선택해 카테고리를 일괄 이동할 수도 있습니다."}
       </p>
@@ -193,6 +204,8 @@ export default async function AdminProductsPage({
           <option value="">전체 표시</option>
           <option value="origin">⚠ 원산지 없음</option>
           <option value="description">상세설명 없음</option>
+          <option value="image">📷 사진 없음</option>
+          <option value="category">🏷 카테고리 미지정</option>
         </select>
         <button
           type="submit"
